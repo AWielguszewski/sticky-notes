@@ -3,6 +3,7 @@ import type { SyncStatus } from '../state/noteSyncer';
 import { useSyncStatus } from '../state/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { TagBar } from './TagBar';
+import { ThemeToggle } from './ThemeToggle';
 import styles from './Toolbar.module.css';
 
 const SYNC_LABEL: Record<SyncStatus, string> = {
@@ -27,6 +28,7 @@ export function Toolbar({ color, onColorChange }: ToolbarProps) {
 
       <div className={styles.tools}>
         <ColorPicker value={color} label="New note color" onChange={onColorChange} />
+        <ThemeToggle />
         <p className={styles.sync} data-status={syncStatus} aria-live="polite">
           <span className={styles.dot} aria-hidden="true" />
           {SYNC_LABEL[syncStatus]}

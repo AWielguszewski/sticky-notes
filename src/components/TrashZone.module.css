@@ -10,9 +10,9 @@
   gap: 8px;
   width: 136px;
   height: 136px;
-  border: 2px dashed #c2c8d6;
+  border: 2px dashed var(--outline);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--veil);
   color: var(--ink-muted);
   pointer-events: none;
   transition: color 140ms ease, border-color 140ms ease, background 140ms ease,
