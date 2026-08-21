@@ -1,0 +1,51 @@
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface Size {
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface Rect extends Point, Size {}
+
+export const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
+export const clampPoint = (point: Point, bounds: Size): Point => ({
+  x: clamp(point.x, 0, bounds.width),
+  y: clamp(point.y, 0, bounds.height),
+});
+
+export const translate = (point: Point, by: Point): Point => ({
+  x: point.x + by.x,
+  y: point.y + by.y,
+});
+
+export const rectFromCorners = (a: Point, b: Point): Rect => ({
+  x: Math.min(a.x, b.x),
+  y: Math.min(a.y, b.y),
+  width: Math.abs(b.x - a.x),
+  height: Math.abs(b.y - a.y),
+});
+
+export const rectFromDomRect = (domRect: DOMRect): Rect => ({
+  x: domRect.left,
+  y: domRect.top,
+  width: domRect.width,
+  height: domRect.height,
+});
+
+export const containsPoint = (rect: Rect, point: Point): boolean =>
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height;
+
+/** Moves the rect back inside the bounds without changing its size. */
+export const clampRectInside = (rect: Rect, bounds: Size): Rect => ({
+  ...rect,
+  x: clamp(rect.x, 0, Math.max(0, bounds.width - rect.width)),
+  y: clamp(rect.y, 0, Math.max(0, bounds.height - rect.height)),
+});
