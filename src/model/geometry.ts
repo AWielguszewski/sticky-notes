@@ -49,3 +49,23 @@ export const clampRectInside = (rect: Rect, bounds: Size): Rect => ({
   x: clamp(rect.x, 0, Math.max(0, bounds.width - rect.width)),
   y: clamp(rect.y, 0, Math.max(0, bounds.height - rect.height)),
 });
+
+/** Smallest rect covering all of them, or null when there is nothing to cover. */
+export const boundingRect = (rects: readonly Rect[]): Rect | null => {
+  let bounds: Rect | null = null;
+  for (const rect of rects) {
+    if (bounds === null) {
+      bounds = rect;
+      continue;
+    }
+    const x = Math.min(bounds.x, rect.x);
+    const y = Math.min(bounds.y, rect.y);
+    bounds = {
+      x,
+      y,
+      width: Math.max(bounds.x + bounds.width, rect.x + rect.width) - x,
+      height: Math.max(bounds.y + bounds.height, rect.y + rect.height) - y,
+    };
+  }
+  return bounds;
+};

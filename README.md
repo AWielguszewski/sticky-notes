@@ -19,3 +19,5 @@ The dev server prints a local URL, by default http://localhost:5173.
 npm run build     # type-check, then bundle into dist/
 npm run preview   # serve the production build
 ```
+
+The design is described in [ARCHITECTURE.md](ARCHITECTURE.md).
