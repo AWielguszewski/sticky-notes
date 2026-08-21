@@ -13,11 +13,6 @@ export interface Rect extends Point, Size {}
 export const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
-export const clampPoint = (point: Point, bounds: Size): Point => ({
-  x: clamp(point.x, 0, bounds.width),
-  y: clamp(point.y, 0, bounds.height),
-});
-
 export const translate = (point: Point, by: Point): Point => ({
   x: point.x + by.x,
   y: point.y + by.y,
@@ -42,13 +37,6 @@ export const containsPoint = (rect: Rect, point: Point): boolean =>
   point.x <= rect.x + rect.width &&
   point.y >= rect.y &&
   point.y <= rect.y + rect.height;
-
-/** Moves the rect back inside the bounds without changing its size. */
-export const clampRectInside = (rect: Rect, bounds: Size): Rect => ({
-  ...rect,
-  x: clamp(rect.x, 0, Math.max(0, bounds.width - rect.width)),
-  y: clamp(rect.y, 0, Math.max(0, bounds.height - rect.height)),
-});
 
 /** Smallest rect covering all of them, or null when there is nothing to cover. */
 export const boundingRect = (rects: readonly Rect[]): Rect | null => {

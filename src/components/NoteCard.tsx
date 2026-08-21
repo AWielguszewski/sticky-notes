@@ -1,14 +1,8 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { usePointerDrag } from '../hooks/usePointerDrag';
-import {
-  clamp,
-  clampRectInside,
-  translate,
-  type Point,
-  type Rect,
-  type Size,
-} from '../model/geometry';
+import { translate, type Point, type Rect } from '../model/geometry';
 import { MIN_NOTE_SIZE, type Note } from '../model/note';
+import { deltaToWorld, type Viewport } from '../model/viewport';
 import { useNoteActions } from '../state/useNotes';
 import { ColorPicker } from './ColorPicker';
 import styles from './NoteCard.module.css';
@@ -24,14 +18,14 @@ interface NoteCardProps {
   note: Note;
   selected: boolean;
   startEditing: boolean;
-  getBoardSize: () => Size;
+  getViewport: () => Viewport;
   dropTarget: NoteDropTarget;
 }
 
 /** Geometry captured when a gesture starts; the pointer delta is applied to it on every frame. */
 interface GestureContext {
   rect: Rect;
-  board: Size;
+  viewport: Viewport;
 }
 
 type NoteFlag = 'dragging' | 'resizing' | 'doomed';
@@ -42,14 +36,19 @@ const CLICK_SLOP_PX = 4;
 const isDrag = (delta: Point): boolean =>
   Math.abs(delta.x) > CLICK_SLOP_PX || Math.abs(delta.y) > CLICK_SLOP_PX;
 
-const movedRect = ({ rect, board }: GestureContext, delta: Point): Rect =>
-  clampRectInside({ ...rect, ...translate(rect, delta) }, board);
-
-const resizedRect = ({ rect, board }: GestureContext, delta: Point): Rect => ({
+const movedRect = ({ rect, viewport }: GestureContext, delta: Point): Rect => ({
   ...rect,
-  width: clamp(rect.width + delta.x, MIN_NOTE_SIZE.width, board.width - rect.x),
-  height: clamp(rect.height + delta.y, MIN_NOTE_SIZE.height, board.height - rect.y),
+  ...translate(rect, deltaToWorld(viewport, delta)),
 });
+
+const resizedRect = ({ rect, viewport }: GestureContext, delta: Point): Rect => {
+  const by = deltaToWorld(viewport, delta);
+  return {
+    ...rect,
+    width: Math.max(rect.width + by.x, MIN_NOTE_SIZE.width),
+    height: Math.max(rect.height + by.y, MIN_NOTE_SIZE.height),
+  };
+};
 
 const noteStyle = (note: Note): CSSProperties => ({
   left: note.rect.x,
@@ -59,7 +58,7 @@ const noteStyle = (note: Note): CSSProperties => ({
   ['--note-z' as string]: note.z,
 });
 
-function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }: NoteCardProps) {
+function NoteCardView({ note, selected, startEditing, getViewport, dropTarget }: NoteCardProps) {
   const actions = useNoteActions();
   const elementRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -85,11 +84,12 @@ function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }
   }, [editing]);
 
   const handleMoveStart = usePointerDrag<GestureContext>({
-    onStart: () => {
+    onStart: (event) => {
+      if (event.button !== 0) return null;
       actions.raise(note.id);
       dropTarget.begin();
       setFlag('dragging', true);
-      return { rect: note.rect, board: getBoardSize() };
+      return { rect: note.rect, viewport: getViewport() };
     },
     onMove: (context, { delta, point }) => {
       applyRect(movedRect(context, delta));
@@ -120,10 +120,11 @@ function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }
   });
 
   const handleResizeStart = usePointerDrag<GestureContext>({
-    onStart: () => {
+    onStart: (event) => {
+      if (event.button !== 0) return null;
       actions.raise(note.id);
       setFlag('resizing', true);
-      return { rect: note.rect, board: getBoardSize() };
+      return { rect: note.rect, viewport: getViewport() };
     },
     onMove: (context, { delta }) => applyRect(resizedRect(context, delta)),
     onEnd: (context, { delta }) => {
@@ -167,7 +168,9 @@ function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }
         placeholder="Write something…"
         aria-label="Note text"
         spellCheck={false}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          if (event.button === 0) event.stopPropagation();
+        }}
         onFocus={() => actions.raise(note.id)}
         onBlur={() => setEditing(false)}
         onChange={(event) => actions.setText(note.id, event.target.value)}
@@ -177,6 +180,7 @@ function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }
         className={styles.resizeHandle}
         title="Drag to resize"
         onPointerDown={(event) => {
+          if (event.button !== 0) return;
           event.stopPropagation();
           handleResizeStart(event);
         }}

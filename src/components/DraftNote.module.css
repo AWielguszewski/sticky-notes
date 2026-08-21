@@ -5,7 +5,8 @@
   align-items: flex-end;
   justify-content: flex-end;
   padding: 6px;
-  border: 2px dashed rgba(20, 26, 40, 0.28);
+  /* Counter-scaled so the outline stays hairline-thin at any zoom. */
+  border: calc(2px / var(--vp-scale)) dashed rgba(20, 26, 40, 0.28);
   border-radius: 5px;
   background: color-mix(in srgb, var(--note-bg) 55%, transparent);
   pointer-events: none;
@@ -16,6 +17,8 @@
 }
 
 .size {
+  transform: scale(calc(1 / var(--vp-scale)));
+  transform-origin: 100% 100%;
   padding: 2px 6px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.75);

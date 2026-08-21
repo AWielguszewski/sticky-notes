@@ -92,7 +92,7 @@ const createDragController = <TContext>(
 
   return {
     start(event) {
-      if (event.button !== 0 || session !== null) return;
+      if (session !== null) return;
       const context = handlers.current.onStart(event);
       if (context === null) return;
 

@@ -1,13 +1,42 @@
-.surface {
+.viewport {
+  --vp-x: 0;
+  --vp-y: 0;
+  --vp-scale: 1;
+  --vp-grid: 26px;
   position: relative;
   flex: 1;
   overflow: hidden;
   background-color: var(--board-bg);
   background-image: radial-gradient(circle at center, var(--board-dot) 1.2px, transparent 1.2px);
-  background-size: 26px 26px;
+  background-size: var(--vp-grid) var(--vp-grid);
+  background-position: calc(var(--vp-x) * 1px) calc(var(--vp-y) * 1px);
   cursor: crosshair;
   touch-action: none;
+  overscroll-behavior: none;
   user-select: none;
+}
+
+.viewport[data-pan-ready] {
+  cursor: grab;
+}
+
+/* While the board is ready to be panned the notes must not swallow the press. */
+.viewport[data-pan-ready] .world {
+  pointer-events: none;
+}
+
+.viewport[data-panning] {
+  cursor: grabbing;
+}
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .placeholder {
