@@ -18,6 +18,7 @@ export interface NotesState {
 
 export type NotesAction =
   | { type: 'loaded'; notes: readonly Note[]; tags: readonly Tag[] }
+  | { type: 'refreshed'; notes: readonly Note[]; tags: readonly Tag[]; keep: readonly NoteId[] }
   | { type: 'loadFailed' }
   | { type: 'created'; id: NoteId; rect: Rect; color: NoteColor; tagIds: readonly TagId[] }
   | { type: 'geometryChanged'; id: NoteId; rect: Rect }
@@ -73,6 +74,19 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
     case 'loaded': {
       const notes: Record<NoteId, Note> = {};
       for (const note of action.notes) notes[note.id] = note;
+      const tags: Record<TagId, Tag> = {};
+      for (const tag of action.tags) tags[tag.id] = tag;
+      return { ...state, status: 'ready', notes, tags };
+    }
+
+    case 'refreshed': {
+      const notes: Record<NoteId, Note> = {};
+      for (const note of action.notes) notes[note.id] = note;
+      // A note still waiting to be written must not be overwritten by what the server last saw.
+      for (const id of action.keep) {
+        const local = state.notes[id];
+        if (local !== undefined) notes[id] = local;
+      }
       const tags: Record<TagId, Tag> = {};
       for (const tag of action.tags) tags[tag.id] = tag;
       return { ...state, status: 'ready', notes, tags };

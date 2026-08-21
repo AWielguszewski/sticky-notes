@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { handleApiRequest, sendJson } from './api.ts';
 import { openDatabase } from './db.ts';
+import { createEventHub } from './events.ts';
 import { serveStatic } from './static.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -12,13 +13,14 @@ const STATIC_DIR = resolve(process.env.STATIC_DIR ?? 'dist');
 
 mkdirSync(DATA_DIR, { recursive: true });
 const db = openDatabase(join(DATA_DIR, 'stickynotes.db'));
+const hub = createEventHub();
 
 const server = createServer((req, res) => {
   const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname;
 
   void (async () => {
     try {
-      if (await handleApiRequest(db, req, res, pathname)) return;
+      if (await handleApiRequest(db, hub, req, res, pathname)) return;
       await serveStatic(STATIC_DIR, res, pathname);
     } catch (error) {
       console.error(error);
@@ -33,6 +35,7 @@ server.listen(PORT, HOST, () => {
 });
 
 const shutdown = (): void => {
+  hub.close();
   server.close(() => {
     db.close();
     process.exit(0);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { notesApi } from '../api/notesApi';
+import { subscribeToChanges } from '../api/notesEvents';
 import { createNoteId, type NoteId } from '../model/note';
 import { createTagId, normaliseTagName, sameTagName, type Tag } from '../model/tag';
 import { createNoteSyncer, type SyncStatus } from './noteSyncer';
@@ -26,6 +27,15 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // Someone else changed something: take the server truth, but keep what is not written yet.
+  const refresh = useCallback(() => {
+    void Promise.all([notesApi.list(), notesApi.listTags()]).then(
+      ([notes, tags]) =>
+        dispatch({ type: 'refreshed', notes, tags, keep: [...dirtyIds.current] }),
+      () => undefined,
+    );
+  }, []);
+
   const actions = useMemo<NoteActions>(() => {
     const touch = (id: NoteId): NoteId => {
       dirtyIds.current.add(id);
@@ -35,7 +45,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     // A tag write that the server turns down would leave the board lying, so the truth is refetched.
     const writeTag = (tag: Tag): void => {
       dispatch({ type: 'tagSaved', tag });
-      void syncer.track(notesApi.saveTag(tag)).catch(load);
+      void syncer.track(notesApi.saveTag(tag)).catch(refresh);
     };
 
     return {
@@ -112,15 +122,17 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       },
       removeTag(id) {
         dispatch({ type: 'tagRemoved', id });
-        void syncer.track(notesApi.removeTag(id)).catch(load);
+        void syncer.track(notesApi.removeTag(id)).catch(refresh);
       },
       filterByTag(tagId) {
         dispatch({ type: 'filtered', tagId });
       },
     };
-  }, [load, syncer]);
+  }, [refresh, syncer]);
 
   useEffect(load, [load]);
+
+  useEffect(() => subscribeToChanges(refresh), [refresh]);
 
   // Persists whatever the reducer produced for the notes touched since the last commit.
   useEffect(() => {

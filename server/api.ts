@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Note, NotesDatabase, Rect, Tag } from './db.ts';
+import type { EventHub } from './events.ts';
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -85,6 +86,7 @@ export const decodeTag = (id: string, value: unknown): Tag | null => {
 
 const handleNotes = async (
   db: NotesDatabase,
+  changed: () => void,
   req: IncomingMessage,
   res: ServerResponse,
   id: string,
@@ -96,12 +98,14 @@ const handleNotes = async (
       return true;
     }
     db.saveNote(note);
+    changed();
     sendJson(res, 200, note);
     return true;
   }
 
   if (req.method === 'DELETE') {
     db.removeNote(id);
+    changed();
     sendEmpty(res, 204);
     return true;
   }
@@ -111,6 +115,7 @@ const handleNotes = async (
 
 const handleTags = async (
   db: NotesDatabase,
+  changed: () => void,
   req: IncomingMessage,
   res: ServerResponse,
   id: string,
@@ -125,12 +130,14 @@ const handleTags = async (
       sendJson(res, 409, { error: 'a tag by that name already exists' });
       return true;
     }
+    changed();
     sendJson(res, 200, tag);
     return true;
   }
 
   if (req.method === 'DELETE') {
     db.removeTag(id);
+    changed();
     sendEmpty(res, 204);
     return true;
   }
@@ -140,12 +147,17 @@ const handleTags = async (
 
 export const handleApiRequest = async (
   db: NotesDatabase,
+  hub: EventHub,
   req: IncomingMessage,
   res: ServerResponse,
   pathname: string,
 ): Promise<boolean> => {
   if (!pathname.startsWith('/api/')) return false;
 
+  if (req.method === 'GET' && pathname === '/api/events') {
+    hub.subscribe(res);
+    return true;
+  }
   if (req.method === 'GET' && pathname === '/api/notes') {
     sendJson(res, 200, db.listNotes());
     return true;
@@ -155,12 +167,15 @@ export const handleApiRequest = async (
     return true;
   }
 
+  const client = req.headers['x-client-id'];
+  const changed = (): void => hub.broadcast(typeof client === 'string' ? client : null);
+
   try {
     const noteId = NOTE_PATH.exec(pathname)?.[1];
-    if (noteId !== undefined && (await handleNotes(db, req, res, noteId))) return true;
+    if (noteId !== undefined && (await handleNotes(db, changed, req, res, noteId))) return true;
 
     const tagId = TAG_PATH.exec(pathname)?.[1];
-    if (tagId !== undefined && (await handleTags(db, req, res, tagId))) return true;
+    if (tagId !== undefined && (await handleTags(db, changed, req, res, tagId))) return true;
   } catch {
     sendJson(res, 400, { error: 'malformed body' });
     return true;

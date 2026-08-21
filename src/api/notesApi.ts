@@ -11,6 +11,9 @@ export interface NotesApi {
   removeTag(id: TagId): Promise<void>;
 }
 
+/** Identifies this board, so the server can tell it apart from the ones it has to notify. */
+export const CLIENT_ID = crypto.randomUUID();
+
 // Requests are queued so that two writes of the same thing cannot land out of order.
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -29,9 +32,12 @@ const request = (path: string, init?: RequestInit): Promise<Response> => {
 const put = (path: string, body: unknown): Promise<Response> =>
   request(path, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-client-id': CLIENT_ID },
     body: JSON.stringify(body),
   });
+
+const remove = (path: string): Promise<Response> =>
+  request(path, { method: 'DELETE', headers: { 'x-client-id': CLIENT_ID } });
 
 export const notesApi: NotesApi = {
   list: async () => decodeNotes(await (await request('/notes')).json()),
@@ -42,7 +48,7 @@ export const notesApi: NotesApi = {
   },
 
   remove: async (id) => {
-    await request(`/notes/${id}`, { method: 'DELETE' });
+    await remove(`/notes/${id}`);
   },
 
   listTags: async () => decodeTags(await (await request('/tags')).json()),
@@ -53,6 +59,6 @@ export const notesApi: NotesApi = {
   },
 
   removeTag: async (id) => {
-    await request(`/tags/${id}`, { method: 'DELETE' });
+    await remove(`/tags/${id}`);
   },
 };
