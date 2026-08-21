@@ -1,0 +1,22 @@
+.surface {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: var(--board-bg);
+  background-image: radial-gradient(circle at center, var(--board-dot) 1.2px, transparent 1.2px);
+  background-size: 26px 26px;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  color: var(--ink-muted);
+  font-size: 15px;
+  pointer-events: none;
+}
