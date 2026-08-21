@@ -2,10 +2,17 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Rea
 import { notesApi } from '../api/notesApi';
 import { subscribeToChanges } from '../api/notesEvents';
 import { createNoteId, type NoteId } from '../model/note';
-import { createTagId, normaliseTagName, sameTagName, type Tag } from '../model/tag';
+import { createTagId, normaliseTagName, sameTagName, type Tag, type TagId } from '../model/tag';
 import { createNoteSyncer, type SyncStatus } from './noteSyncer';
 import { NoteActionsContext, NotesStateContext, SyncStatusContext, type NoteActions } from './notesContext';
-import { initialNotesState, notesReducer } from './notesReducer';
+import { initialNotesState, notesReducer, type NoteMap, type TagMap } from './notesReducer';
+
+const HISTORY_LIMIT = 100;
+
+interface Snapshot {
+  notes: NoteMap;
+  tags: TagMap;
+}
 
 export function NotesProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(notesReducer, initialNotesState);
@@ -15,6 +22,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     [],
   );
   const dirtyIds = useRef(new Set<NoteId>());
+  const history = useRef<{ past: Snapshot[]; future: Snapshot[]; last: string }>({
+    past: [],
+    future: [],
+    last: '',
+  });
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
@@ -48,24 +60,65 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       void syncer.track(notesApi.saveTag(tag)).catch(refresh);
     };
 
+    /** Remembers the state about to be left behind; a run of keystrokes counts as one step. */
+    const record = (label: string): void => {
+      const log = history.current;
+      log.future = [];
+      if (label !== '' && label === log.last) return;
+      log.last = label;
+      log.past.push({ notes: stateRef.current.notes, tags: stateRef.current.tags });
+      if (log.past.length > HISTORY_LIMIT) log.past.shift();
+    };
+
+    // Whatever the two snapshots disagree on is what has to reach the server.
+    const writeDiff = (from: Snapshot, to: Snapshot): void => {
+      for (const note of Object.values(to.notes)) {
+        if (from.notes[note.id] !== note) syncer.save(note);
+      }
+      for (const id of Object.keys(from.notes) as NoteId[]) {
+        if (to.notes[id] === undefined) syncer.remove(id);
+      }
+      for (const tag of Object.values(to.tags)) {
+        if (from.tags[tag.id] !== tag) void syncer.track(notesApi.saveTag(tag)).catch(refresh);
+      }
+      for (const id of Object.keys(from.tags) as TagId[]) {
+        if (to.tags[id] === undefined) void syncer.track(notesApi.removeTag(id)).catch(refresh);
+      }
+    };
+
+    const step = (from: Snapshot[], to: Snapshot[]): void => {
+      const target = from.pop();
+      if (target === undefined) return;
+      const current: Snapshot = { notes: stateRef.current.notes, tags: stateRef.current.tags };
+      to.push(current);
+      history.current.last = '';
+      dispatch({ type: 'restored', notes: target.notes, tags: target.tags });
+      writeDiff(current, target);
+    };
+
     return {
       create(rect, color, tagIds = []) {
+        record('');
         const id = createNoteId();
         dispatch({ type: 'created', id, rect, color, tagIds });
         return touch(id);
       },
       setGeometry(id, rect) {
+        record('');
         dispatch({ type: 'geometryChanged', id: touch(id), rect });
       },
       setText(id, text) {
+        record(`text:${id}`);
         dispatch({ type: 'textChanged', id: touch(id), text });
       },
       setColor(id, color) {
+        record('');
         dispatch({ type: 'colorChanged', id: touch(id), color });
       },
       toggleTag(id, tagId) {
         const note = stateRef.current.notes[id];
         if (note === undefined) return;
+        record('');
         const tagIds = note.tagIds.includes(tagId)
           ? note.tagIds.filter((entry) => entry !== tagId)
           : [...note.tagIds, tagId];
@@ -74,6 +127,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       makeTagPrimary(id, tagId) {
         const note = stateRef.current.notes[id];
         if (note === undefined || !note.tagIds.includes(tagId)) return;
+        record('');
         dispatch({
           type: 'tagsChanged',
           id: touch(id),
@@ -87,6 +141,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'selected', id });
       },
       remove(id) {
+        record('');
         dirtyIds.current.delete(id);
         syncer.remove(id);
         dispatch({ type: 'removed', id });
@@ -99,6 +154,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         );
         if (taken) return null;
 
+        record('');
         const tag: Tag = { id: createTagId(), name: trimmed, color };
         writeTag(tag);
         return tag.id;
@@ -112,20 +168,29 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         );
         if (taken) return false;
 
+        record('');
         writeTag({ ...tag, name: trimmed });
         return true;
       },
       setTagColor(id, color) {
         const tag = stateRef.current.tags[id];
         if (tag === undefined || tag.color === color) return;
+        record('');
         writeTag({ ...tag, color });
       },
       removeTag(id) {
+        record('');
         dispatch({ type: 'tagRemoved', id });
         void syncer.track(notesApi.removeTag(id)).catch(refresh);
       },
       filterByTag(tagId) {
         dispatch({ type: 'filtered', tagId });
+      },
+      undo() {
+        step(history.current.past, history.current.future);
+      },
+      redo() {
+        step(history.current.future, history.current.past);
       },
     };
   }, [refresh, syncer]);

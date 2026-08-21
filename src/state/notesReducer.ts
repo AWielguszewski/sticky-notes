@@ -30,7 +30,8 @@ export type NotesAction =
   | { type: 'removed'; id: NoteId }
   | { type: 'tagSaved'; tag: Tag }
   | { type: 'tagRemoved'; id: TagId }
-  | { type: 'filtered'; tagId: TagId | null };
+  | { type: 'filtered'; tagId: TagId | null }
+  | { type: 'restored'; notes: NoteMap; tags: TagMap };
 
 export const initialNotesState: NotesState = {
   status: 'loading',
@@ -166,6 +167,18 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
 
     case 'filtered':
       return state.filterTagId === action.tagId ? state : { ...state, filterTagId: action.tagId };
+
+    case 'restored': {
+      const selectedId =
+        state.selectedId !== null && action.notes[state.selectedId] === undefined
+          ? null
+          : state.selectedId;
+      const filterTagId =
+        state.filterTagId !== null && action.tags[state.filterTagId] === undefined
+          ? null
+          : state.filterTagId;
+      return { ...state, notes: action.notes, tags: action.tags, selectedId, filterTagId };
+    }
 
     default: {
       const unhandled: never = action;

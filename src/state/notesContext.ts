@@ -21,6 +21,8 @@ export interface NoteActions {
   setTagColor(id: TagId, color: NoteColor): void;
   removeTag(id: TagId): void;
   filterByTag(tagId: TagId | null): void;
+  undo(): void;
+  redo(): void;
 }
 
 export const NotesStateContext = createContext<NotesState | null>(null);

@@ -174,3 +174,42 @@ describe('effectiveColor', () => {
     expect(note && effectiveColor(note, state.tags)).toBe('lime');
   });
 });
+
+describe('restored', () => {
+  it('puts back the notes and tags it is given', () => {
+    const before = stateWith([makeNote('a')], [makeTag('t1', 'stkbot')]);
+    const after = notesReducer(before, { type: 'removed', id: noteId('a') });
+    const undone = notesReducer(after, {
+      type: 'restored',
+      notes: before.notes,
+      tags: before.tags,
+    });
+    expect(selectNoteList(undone)).toHaveLength(1);
+  });
+
+  it('lets go of a selection and a filter that no longer exist', () => {
+    const full = stateWith([makeNote('a', { tagIds: [tagId('t1')] })], [makeTag('t1', 'stkbot')]);
+    const selected = notesReducer(
+      notesReducer(full, { type: 'selected', id: noteId('a') }),
+      { type: 'filtered', tagId: tagId('t1') },
+    );
+    const state = notesReducer(selected, { type: 'restored', notes: {}, tags: {} });
+    expect(state.selectedId).toBeNull();
+    expect(state.filterTagId).toBeNull();
+  });
+});
+
+describe('refreshed', () => {
+  it('takes the server truth but keeps the notes still being written', () => {
+    const local = stateWith([makeNote('a', { text: 'still typing' }), makeNote('b')]);
+    const state = notesReducer(local, {
+      type: 'refreshed',
+      notes: [makeNote('a', { text: 'stale' }), makeNote('c')],
+      tags: [],
+      keep: [noteId('a')],
+    });
+    expect(state.notes[noteId('a')]?.text).toBe('still typing');
+    expect(state.notes[noteId('b')]).toBeUndefined();
+    expect(state.notes[noteId('c')]).toBeDefined();
+  });
+});

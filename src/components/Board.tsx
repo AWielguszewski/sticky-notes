@@ -190,16 +190,21 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (isTyping(event.target)) return;
       if (event.ctrlKey || event.metaKey) {
-        if (event.key === '0') resetZoom();
+        // A controlled textarea has no undo stack of its own, so the board owns the shortcut.
+        if (event.code === 'KeyZ') {
+          if (event.shiftKey) actions.redo();
+          else actions.undo();
+        } else if (event.code === 'KeyY') actions.redo();
+        else if (isTyping(event.target)) return;
+        else if (event.key === '0') resetZoom();
         else if (event.key === '+' || event.key === '=') zoomAtCentre(ZOOM_STEP);
         else if (event.key === '-') zoomAtCentre(1 / ZOOM_STEP);
         else return;
         event.preventDefault();
         return;
       }
-      if (event.shiftKey && event.code === 'Digit1') {
+      if (event.shiftKey && event.code === 'Digit1' && !isTyping(event.target)) {
         event.preventDefault();
         fitToNotes();
       }
@@ -207,7 +212,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fitToNotes, resetZoom, zoomAtCentre]);
+  }, [actions, fitToNotes, resetZoom, zoomAtCentre]);
 
   // The trash bounds are measured once per gesture, so dragging a note never forces a layout.
   const dropTarget = useMemo<NoteDropTarget>(() => {
