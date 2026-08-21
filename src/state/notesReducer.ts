@@ -1,5 +1,6 @@
 import type { Rect } from '../model/geometry';
 import type { Note, NoteColor, NoteId } from '../model/note';
+import type { TagId } from '../model/tag';
 
 export type NotesStatus = 'loading' | 'ready' | 'failed';
 
@@ -14,7 +15,7 @@ export interface NotesState {
 export type NotesAction =
   | { type: 'loaded'; notes: readonly Note[] }
   | { type: 'loadFailed' }
-  | { type: 'created'; id: NoteId; rect: Rect; color: NoteColor }
+  | { type: 'created'; id: NoteId; rect: Rect; color: NoteColor; tagIds: readonly TagId[] }
   | { type: 'geometryChanged'; id: NoteId; rect: Rect }
   | { type: 'textChanged'; id: NoteId; text: string }
   | { type: 'colorChanged'; id: NoteId; color: NoteColor }
@@ -57,6 +58,7 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
         color: action.color,
         text: '',
         z: topZ(state.notes) + 1,
+        tagIds: action.tagIds,
       };
       return { ...state, notes: { ...state.notes, [note.id]: note }, selectedId: note.id };
     }

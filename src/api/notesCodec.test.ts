@@ -8,6 +8,7 @@ const note: Note = {
   text: 'hey',
   color: 'lime',
   z: 3,
+  tagIds: [],
 };
 
 describe('decodeNote', () => {

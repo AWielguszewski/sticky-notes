@@ -48,3 +48,45 @@
   --note-edge: #c1a8fb;
   --note-ink: #331f6b;
 }
+
+[data-color='peach'] {
+  --note-bg: #ffcaa3;
+  --note-edge: #ffb583;
+  --note-ink: #5c3212;
+}
+
+[data-color='blush'] {
+  --note-bg: #f9c2f0;
+  --note-edge: #f0a8e6;
+  --note-ink: #55164c;
+}
+
+[data-color='indigo'] {
+  --note-bg: #b6c4ff;
+  --note-edge: #9aadff;
+  --note-ink: #1f2a63;
+}
+
+[data-color='teal'] {
+  --note-bg: #a5e6dd;
+  --note-edge: #85dbcf;
+  --note-ink: #0f463f;
+}
+
+[data-color='mint'] {
+  --note-bg: #b9edc4;
+  --note-edge: #9be2ab;
+  --note-ink: #17492a;
+}
+
+[data-color='sand'] {
+  --note-bg: #e8dcc0;
+  --note-edge: #dbcaa5;
+  --note-ink: #4a3e22;
+}
+
+[data-color='slate'] {
+  --note-bg: #cfd6e2;
+  --note-edge: #b9c3d4;
+  --note-ink: #2b3446;
+}

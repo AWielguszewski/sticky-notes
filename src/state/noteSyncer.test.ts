@@ -11,6 +11,7 @@ const makeNote = (id: string, text: string): Note => ({
   text,
   color: 'amber',
   z: 1,
+  tagIds: [],
 });
 
 const recordingApi = () => {

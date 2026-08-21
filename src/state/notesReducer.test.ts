@@ -10,6 +10,7 @@ const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   text: '',
   color: 'amber',
   z: 1,
+  tagIds: [],
   ...overrides,
 });
 
@@ -35,6 +36,7 @@ describe('created', () => {
       id: noteId('b'),
       rect: { x: 10, y: 10, width: 140, height: 140 },
       color: 'sky',
+      tagIds: [],
     });
     expect(state.notes[noteId('b')]?.z).toBe(8);
     expect(state.selectedId).toBe(noteId('b'));

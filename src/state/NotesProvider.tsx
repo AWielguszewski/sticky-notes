@@ -21,9 +21,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     };
 
     return {
-      create(rect, color) {
+      create(rect, color, tagIds = []) {
         const id = createNoteId();
-        dispatch({ type: 'created', id, rect, color });
+        dispatch({ type: 'created', id, rect, color, tagIds });
         return touch(id);
       },
       setGeometry(id, rect) {
