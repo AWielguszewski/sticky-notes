@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { NOTE_SIZE, nextFreeRect, resolveTagIds, topZ, type Note, type Tag } from './board.ts';
+import {
+  NOTE_SIZE,
+  nextFreeRect,
+  resolveTagIds,
+  topZ,
+  type Note,
+  type Rect,
+  type Tag,
+} from './board.ts';
 
 const tags: Tag[] = [
   { id: 't1', name: 'stkbot', color: 'violet' },
@@ -28,7 +36,7 @@ describe('nextFreeRect', () => {
   });
 
   it('wraps to the next row once the row is full', () => {
-    const taken = [];
+    const taken: Rect[] = [];
     for (let i = 0; i < 6; i += 1) taken.push(nextFreeRect(taken));
     const seventh = nextFreeRect(taken);
     expect(seventh.x).toBe(0);
