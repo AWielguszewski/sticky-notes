@@ -1,0 +1,10 @@
+services:
+  stickynotes:
+    build: .
+    image: stickynotes
+    container_name: stickynotes
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ./data:/data
