@@ -1,5 +1,5 @@
 import type { Note, NoteId } from '../model/note';
-import { readNotes, writeNotes } from './notesStorage';
+import { decodeNotes } from './notesCodec';
 
 export interface NotesApi {
   list(): Promise<Note[]>;
@@ -7,39 +7,36 @@ export interface NotesApi {
   remove(id: NoteId): Promise<void>;
 }
 
-const MIN_LATENCY_MS = 40;
-const MAX_LATENCY_MS = 180;
+const BASE_PATH = '/api/notes';
 
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-// Requests are queued so that concurrent read-modify-write calls cannot drop each other's changes.
+// Requests are queued so that two writes of the same note cannot land out of order.
 let queue: Promise<unknown> = Promise.resolve();
 
-const request = <T>(handler: () => T): Promise<T> => {
+const request = (path: string, init?: RequestInit): Promise<Response> => {
   const result = queue.then(async () => {
-    await delay(MIN_LATENCY_MS + Math.random() * (MAX_LATENCY_MS - MIN_LATENCY_MS));
-    return handler();
+    const response = await fetch(`${BASE_PATH}${path}`, init);
+    if (!response.ok) {
+      throw new Error(`${init?.method ?? 'GET'} ${BASE_PATH}${path} failed: ${response.status}`);
+    }
+    return response;
   });
   queue = result.catch(() => undefined);
   return result;
 };
 
-/** Stand-in for a REST backend: asynchronous, request-scoped, persisted in local storage. */
 export const notesApi: NotesApi = {
-  list: () => request(readNotes),
+  list: async () => decodeNotes(await (await request('')).json()),
 
-  save: (note) =>
-    request(() => {
-      const others = readNotes().filter((entry) => entry.id !== note.id);
-      writeNotes([...others, note]);
-      return note;
-    }),
+  save: async (note) => {
+    await request(`/${note.id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(note),
+    });
+    return note;
+  },
 
-  remove: (id) =>
-    request(() => {
-      writeNotes(readNotes().filter((entry) => entry.id !== id));
-    }),
+  remove: async (id) => {
+    await request(`/${id}`, { method: 'DELETE' });
+  },
 };

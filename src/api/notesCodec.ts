@@ -1,8 +1,6 @@
 import type { Rect } from '../model/geometry';
 import { NOTE_COLORS, type Note, type NoteColor, type NoteId } from '../model/note';
 
-const STORAGE_KEY = 'sticky-notes.v1';
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
@@ -23,7 +21,7 @@ const decodeRect = (value: unknown): Rect | null => {
   return { x, y, width, height };
 };
 
-const decodeNote = (value: unknown): Note | null => {
+export const decodeNote = (value: unknown): Note | null => {
   if (!isRecord(value)) return null;
   const { id, text, color, z } = value;
   const rect = decodeRect(value.rect);
@@ -39,26 +37,14 @@ const decodeNote = (value: unknown): Note | null => {
   return { id: id as NoteId, rect, text, color, z };
 };
 
-export const readNotes = (): Note[] => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw === null) return [];
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
+/** Anything that does not decode is dropped: one broken note must not empty the board. */
+export const decodeNotes = (value: unknown): Note[] => {
+  if (!Array.isArray(value)) return [];
 
   const notes: Note[] = [];
-  for (const entry of parsed) {
+  for (const entry of value) {
     const note = decodeNote(entry);
     if (note !== null) notes.push(note);
   }
   return notes;
-};
-
-export const writeNotes = (notes: readonly Note[]): void => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
 };
