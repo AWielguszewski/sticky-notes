@@ -1,5 +1,5 @@
 import type { Rect } from '../model/geometry';
-import type { Note, NoteColor, NoteId } from '../model/note';
+import type { ImageId, Note, NoteColor, NoteId, NoteImage } from '../model/note';
 import type { Tag, TagId } from '../model/tag';
 
 export type NotesStatus = 'loading' | 'ready' | 'failed';
@@ -25,6 +25,8 @@ export type NotesAction =
   | { type: 'textChanged'; id: NoteId; text: string }
   | { type: 'colorChanged'; id: NoteId; color: NoteColor }
   | { type: 'tagsChanged'; id: NoteId; tagIds: readonly TagId[] }
+  | { type: 'imageAdded'; id: NoteId; image: NoteImage }
+  | { type: 'imageRemoved'; id: NoteId; imageId: ImageId }
   | { type: 'raised'; id: NoteId }
   | { type: 'selected'; id: NoteId | null }
   | { type: 'removed'; id: NoteId }
@@ -104,6 +106,7 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
         text: '',
         z: topZ(state.notes) + 1,
         tagIds: action.tagIds,
+        images: [],
       };
       return { ...state, notes: { ...state.notes, [note.id]: note }, selectedId: note.id };
     }
@@ -119,6 +122,20 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
 
     case 'tagsChanged':
       return patchNote(state, action.id, { tagIds: action.tagIds });
+
+    case 'imageAdded': {
+      const note = state.notes[action.id];
+      if (note === undefined) return state;
+      return patchNote(state, action.id, { images: [...note.images, action.image] });
+    }
+
+    case 'imageRemoved': {
+      const note = state.notes[action.id];
+      if (note === undefined) return state;
+      return patchNote(state, action.id, {
+        images: note.images.filter((image) => image.id !== action.imageId),
+      });
+    }
 
     case 'raised': {
       const note = state.notes[action.id];

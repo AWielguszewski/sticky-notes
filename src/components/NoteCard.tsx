@@ -6,6 +6,7 @@ import { deltaToWorld, type Viewport } from '../model/viewport';
 import { effectiveColor, type TagMap } from '../state/notesReducer';
 import { useNoteActions } from '../state/useNotes';
 import { ColorPicker } from './ColorPicker';
+import { NoteImages } from './NoteImages';
 import { NoteTags } from './NoteTags';
 import styles from './NoteCard.module.css';
 
@@ -159,6 +160,17 @@ function NoteCardView({
       data-editing={editing || undefined}
       aria-label="Sticky note"
       onPointerDown={handleMoveStart}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        const files = [...event.dataTransfer.files].filter((file) =>
+          file.type.startsWith('image/'),
+        );
+        if (files.length === 0) return;
+        event.preventDefault();
+        for (const file of files) actions.attachImage(note.id, file);
+      }}
     >
       <header className={styles.header}>
         <span className={styles.grip} aria-hidden="true" />
@@ -181,10 +193,20 @@ function NoteCardView({
         onPointerDown={(event) => {
           if (event.button === 0) event.stopPropagation();
         }}
+        onPaste={(event) => {
+          const files = [...event.clipboardData.files].filter((file) =>
+            file.type.startsWith('image/'),
+          );
+          if (files.length === 0) return;
+          event.preventDefault();
+          for (const file of files) actions.attachImage(note.id, file);
+        }}
         onFocus={() => actions.raise(note.id)}
         onBlur={() => setEditing(false)}
         onChange={(event) => actions.setText(note.id, event.target.value)}
       />
+
+      <NoteImages noteId={note.id} images={note.images} />
 
       <NoteTags noteId={note.id} tagIds={note.tagIds} tags={tags} />
 

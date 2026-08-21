@@ -12,6 +12,7 @@ const makeNote = (id: string, text: string): Note => ({
   color: 'amber',
   z: 1,
   tagIds: [],
+  images: [],
 });
 
 const recordingApi = () => {
@@ -30,6 +31,8 @@ const recordingApi = () => {
     listTags: () => Promise.resolve([]),
     saveTag: (tag) => Promise.resolve(tag),
     removeTag: () => Promise.resolve(),
+    addImage: () => Promise.reject(new Error('no images here')),
+    removeImage: () => Promise.resolve(),
   };
   return { api, saved, removed };
 };
@@ -87,6 +90,8 @@ describe('createNoteSyncer', () => {
       listTags: () => Promise.resolve([]),
       saveTag: (tag) => Promise.resolve(tag),
       removeTag: () => Promise.resolve(),
+      addImage: () => Promise.reject(new Error('no images here')),
+      removeImage: () => Promise.resolve(),
     };
     const syncer = createNoteSyncer({ api, onStatusChange: (status) => statuses.push(status) });
 

@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 import type { Rect } from '../model/geometry';
-import type { NoteColor, NoteId } from '../model/note';
+import type { ImageId, NoteColor, NoteId } from '../model/note';
 import type { TagId } from '../model/tag';
 import type { SyncStatus } from './noteSyncer';
 import type { NotesState } from './notesReducer';
@@ -11,6 +11,8 @@ export interface NoteActions {
   setText(id: NoteId, text: string): void;
   setColor(id: NoteId, color: NoteColor): void;
   toggleTag(id: NoteId, tagId: TagId): void;
+  attachImage(id: NoteId, file: Blob): void;
+  detachImage(id: NoteId, imageId: ImageId): void;
   makeTagPrimary(id: NoteId, tagId: TagId): void;
   raise(id: NoteId): void;
   select(id: NoteId | null): void;

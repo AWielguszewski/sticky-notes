@@ -1,6 +1,6 @@
-import type { Note, NoteId } from '../model/note';
+import type { ImageId, Note, NoteId, NoteImage } from '../model/note';
 import type { Tag, TagId } from '../model/tag';
-import { decodeNotes, decodeTags } from './notesCodec';
+import { decodeImage, decodeNotes, decodeTags } from './notesCodec';
 
 export interface NotesApi {
   list(): Promise<Note[]>;
@@ -9,6 +9,8 @@ export interface NotesApi {
   listTags(): Promise<Tag[]>;
   saveTag(tag: Tag): Promise<Tag>;
   removeTag(id: TagId): Promise<void>;
+  addImage(noteId: NoteId, file: Blob): Promise<NoteImage>;
+  removeImage(id: ImageId): Promise<void>;
 }
 
 /** Identifies this board, so the server can tell it apart from the ones it has to notify. */
@@ -60,5 +62,20 @@ export const notesApi: NotesApi = {
 
   removeTag: async (id) => {
     await remove(`/tags/${id}`);
+  },
+
+  addImage: async (noteId, file) => {
+    const response = await request(`/notes/${noteId}/images`, {
+      method: 'POST',
+      headers: { 'content-type': file.type, 'x-client-id': CLIENT_ID },
+      body: file,
+    });
+    const image = decodeImage(await response.json());
+    if (image === null) throw new Error('the server did not answer with an image');
+    return image;
+  },
+
+  removeImage: async (id) => {
+    await remove(`/images/${id}`);
   },
 };

@@ -115,6 +115,17 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         record('');
         dispatch({ type: 'colorChanged', id: touch(id), color });
       },
+      attachImage(id, file) {
+        // The id of an image is the server's to give, so nothing is drawn before it answers.
+        void syncer
+          .track(notesApi.addImage(id, file))
+          .then((image) => dispatch({ type: 'imageAdded', id, image }))
+          .catch(refresh);
+      },
+      detachImage(id, imageId) {
+        dispatch({ type: 'imageRemoved', id, imageId });
+        void syncer.track(notesApi.removeImage(imageId)).catch(refresh);
+      },
       toggleTag(id, tagId) {
         const note = stateRef.current.notes[id];
         if (note === undefined) return;

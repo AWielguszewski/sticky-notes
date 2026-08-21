@@ -22,6 +22,7 @@ const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   color: 'amber',
   z: 1,
   tagIds: [],
+  images: [],
   ...overrides,
 });
 

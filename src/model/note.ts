@@ -3,6 +3,15 @@ import type { TagId } from './tag';
 
 export type NoteId = string & { readonly __brand: 'NoteId' };
 
+export type ImageId = string & { readonly __brand: 'ImageId' };
+
+export interface NoteImage {
+  readonly id: ImageId;
+  readonly mime: string;
+}
+
+export const imageUrl = (id: ImageId): string => `/api/images/${id}`;
+
 export const NOTE_COLORS = [
   'amber',
   'peach',
@@ -29,6 +38,7 @@ export interface Note {
   readonly z: number;
   /** The first tag, when there is one, decides how the note is painted. */
   readonly tagIds: readonly TagId[];
+  readonly images: readonly NoteImage[];
 }
 
 export const MIN_NOTE_SIZE: Size = { width: 140, height: 120 };

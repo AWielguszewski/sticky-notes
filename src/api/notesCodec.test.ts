@@ -9,6 +9,7 @@ const note: Note = {
   color: 'lime',
   z: 3,
   tagIds: [],
+  images: [],
 };
 
 describe('decodeNote', () => {
