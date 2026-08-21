@@ -9,7 +9,7 @@ import {
 } from '../model/geometry';
 import { DEFAULT_NOTE_SIZE, MIN_NOTE_SIZE, type NoteColor, type NoteId } from '../model/note';
 import { fitToRect, panBy, toWorld, zoomBy, zoomTo, type Viewport } from '../model/viewport';
-import { selectNoteList } from '../state/notesReducer';
+import { selectVisibleNotes } from '../state/notesReducer';
 import { useNoteActions, useNotesState } from '../state/useNotes';
 import { viewportStore } from '../state/viewportStore';
 import { DraftNote, type DraftNoteHandle } from './DraftNote';
@@ -62,7 +62,7 @@ const drawnRect = ({ origin, anchor }: DrawGesture, point: Point): Rect =>
 export function Board({ draftColor }: { draftColor: NoteColor }) {
   const state = useNotesState();
   const actions = useNoteActions();
-  const notes = selectNoteList(state);
+  const notes = selectVisibleNotes(state);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
@@ -72,6 +72,13 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
   const panReadyRef = useRef(false);
 
   const getViewport = useCallback((): Viewport => viewportStore.get(), []);
+
+  // A note drawn while a tag is filtered belongs to that tag.
+  const filterTagId = state.filterTagId;
+  const draftTagIds = useMemo(
+    () => (filterTagId === null ? [] : [filterTagId]),
+    [filterTagId],
+  );
 
   const notesRef = useRef(notes);
   useEffect(() => {
@@ -279,6 +286,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
           height: Math.max(drawn.height, MIN_NOTE_SIZE.height),
         },
         draftColor,
+        draftTagIds,
       );
     },
     onCancel: (context) => {
@@ -306,6 +314,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
         ...DEFAULT_NOTE_SIZE,
       },
       draftColor,
+      draftTagIds,
     );
   };
 
@@ -342,6 +351,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
           <NoteCard
             key={note.id}
             note={note}
+            tags={state.tags}
             selected={note.id === selectedId}
             startEditing={note.id === createdIdRef.current}
             getViewport={getViewport}

@@ -3,8 +3,10 @@ import { usePointerDrag } from '../hooks/usePointerDrag';
 import { translate, type Point, type Rect } from '../model/geometry';
 import { MIN_NOTE_SIZE, type Note } from '../model/note';
 import { deltaToWorld, type Viewport } from '../model/viewport';
+import { effectiveColor, type TagMap } from '../state/notesReducer';
 import { useNoteActions } from '../state/useNotes';
 import { ColorPicker } from './ColorPicker';
+import { NoteTags } from './NoteTags';
 import styles from './NoteCard.module.css';
 
 export interface NoteDropTarget {
@@ -16,6 +18,7 @@ export interface NoteDropTarget {
 
 interface NoteCardProps {
   note: Note;
+  tags: TagMap;
   selected: boolean;
   startEditing: boolean;
   getViewport: () => Viewport;
@@ -58,7 +61,14 @@ const noteStyle = (note: Note): CSSProperties => ({
   ['--note-z' as string]: note.z,
 });
 
-function NoteCardView({ note, selected, startEditing, getViewport, dropTarget }: NoteCardProps) {
+function NoteCardView({
+  note,
+  tags,
+  selected,
+  startEditing,
+  getViewport,
+  dropTarget,
+}: NoteCardProps) {
   const actions = useNoteActions();
   const elementRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -144,7 +154,7 @@ function NoteCardView({ note, selected, startEditing, getViewport, dropTarget }:
       ref={elementRef}
       className={styles.note}
       style={noteStyle(note)}
-      data-color={note.color}
+      data-color={effectiveColor(note, tags)}
       data-selected={selected || undefined}
       data-editing={editing || undefined}
       aria-label="Sticky note"
@@ -175,6 +185,8 @@ function NoteCardView({ note, selected, startEditing, getViewport, dropTarget }:
         onBlur={() => setEditing(false)}
         onChange={(event) => actions.setText(note.id, event.target.value)}
       />
+
+      <NoteTags noteId={note.id} tagIds={note.tagIds} tags={tags} />
 
       <span
         className={styles.resizeHandle}
