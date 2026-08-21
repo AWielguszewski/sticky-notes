@@ -1,0 +1,47 @@
+.zoom {
+  position: absolute;
+  bottom: 28px;
+  left: 28px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-panel);
+}
+
+.button,
+.level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.button {
+  width: 26px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.level {
+  width: 52px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.button:hover,
+.level:hover {
+  background: var(--board-bg);
+  color: var(--ink);
+}

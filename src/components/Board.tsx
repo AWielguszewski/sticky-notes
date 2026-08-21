@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { usePointerDrag } from '../hooks/usePointerDrag';
-import { containsPoint, rectFromCorners, type Point, type Rect } from '../model/geometry';
+import {
+  boundingRect,
+  containsPoint,
+  rectFromCorners,
+  type Point,
+  type Rect,
+} from '../model/geometry';
 import { DEFAULT_NOTE_SIZE, MIN_NOTE_SIZE, type NoteColor, type NoteId } from '../model/note';
-import { panBy, toWorld, zoomBy, type Viewport } from '../model/viewport';
+import { fitToRect, panBy, toWorld, zoomBy, zoomTo, type Viewport } from '../model/viewport';
 import { selectNoteList } from '../state/notesReducer';
 import { useNoteActions, useNotesState } from '../state/useNotes';
 import { viewportStore } from '../state/viewportStore';
 import { DraftNote, type DraftNoteHandle } from './DraftNote';
 import { NoteCard, type NoteDropTarget } from './NoteCard';
 import { TrashZone, type TrashZoneHandle } from './TrashZone';
+import { ZoomControl } from './ZoomControl';
 import styles from './Board.module.css';
 
 /** Shorter drags are treated as a click on the board rather than as drawing a note. */
@@ -22,6 +29,10 @@ const MIN_GRID_PX = 16;
 const WHEEL_LINE_PX = 16;
 
 const ZOOM_SENSITIVITY = 320;
+
+const ZOOM_STEP = 1.25;
+
+const FIT_PADDING_PX = 80;
 
 interface DrawGesture {
   kind: 'draw';
@@ -61,6 +72,39 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
   const panReadyRef = useRef(false);
 
   const getViewport = useCallback((): Viewport => viewportStore.get(), []);
+
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  });
+
+  const zoomAtCentre = useCallback((factor: number) => {
+    const element = viewportRef.current;
+    if (element === null) return;
+    const pivot = { x: element.clientWidth / 2, y: element.clientHeight / 2 };
+    viewportStore.set(zoomBy(viewportStore.get(), pivot, factor));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    const element = viewportRef.current;
+    if (element === null) return;
+    const pivot = { x: element.clientWidth / 2, y: element.clientHeight / 2 };
+    viewportStore.set(zoomTo(viewportStore.get(), pivot, 1));
+  }, []);
+
+  const fitToNotes = useCallback(() => {
+    const element = viewportRef.current;
+    if (element === null) return;
+    const bounds = boundingRect(notesRef.current.map((note) => note.rect));
+    if (bounds === null) return;
+    viewportStore.set(
+      fitToRect(
+        bounds,
+        { width: element.clientWidth, height: element.clientHeight },
+        FIT_PADDING_PX,
+      ),
+    );
+  }, []);
 
   // The camera is written straight to the DOM: panning must not re-render a single note.
   useEffect(() => {
@@ -136,6 +180,27 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       window.removeEventListener('blur', handleBlur);
     };
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (isTyping(event.target)) return;
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key === '0') resetZoom();
+        else if (event.key === '+' || event.key === '=') zoomAtCentre(ZOOM_STEP);
+        else if (event.key === '-') zoomAtCentre(1 / ZOOM_STEP);
+        else return;
+        event.preventDefault();
+        return;
+      }
+      if (event.shiftKey && event.code === 'Digit1') {
+        event.preventDefault();
+        fitToNotes();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fitToNotes, resetZoom, zoomAtCentre]);
 
   // The trash bounds are measured once per gesture, so dragging a note never forces a layout.
   const dropTarget = useMemo<NoteDropTarget>(() => {
@@ -288,6 +353,12 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       </div>
 
       <TrashZone ref={trashRef} />
+      <ZoomControl
+        onZoomIn={() => zoomAtCentre(ZOOM_STEP)}
+        onZoomOut={() => zoomAtCentre(1 / ZOOM_STEP)}
+        onReset={resetZoom}
+        onFit={fitToNotes}
+      />
 
       {state.status === 'loading' && <p className={styles.placeholder}>Loading notes…</p>}
       {state.status === 'failed' && <p className={styles.placeholder}>Notes could not be loaded.</p>}
