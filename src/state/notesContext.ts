@@ -10,9 +10,17 @@ export interface NoteActions {
   setGeometry(id: NoteId, rect: Rect): void;
   setText(id: NoteId, text: string): void;
   setColor(id: NoteId, color: NoteColor): void;
+  toggleTag(id: NoteId, tagId: TagId): void;
+  makeTagPrimary(id: NoteId, tagId: TagId): void;
   raise(id: NoteId): void;
   select(id: NoteId | null): void;
   remove(id: NoteId): void;
+  /** Null when the name is blank or another tag already goes by it. */
+  createTag(name: string, color: NoteColor): TagId | null;
+  renameTag(id: TagId, name: string): boolean;
+  setTagColor(id: TagId, color: NoteColor): void;
+  removeTag(id: TagId): void;
+  filterByTag(tagId: TagId | null): void;
 }
 
 export const NotesStateContext = createContext<NotesState | null>(null);

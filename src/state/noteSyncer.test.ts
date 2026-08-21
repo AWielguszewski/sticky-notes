@@ -27,6 +27,9 @@ const recordingApi = () => {
       removed.push(id);
       return Promise.resolve();
     },
+    listTags: () => Promise.resolve([]),
+    saveTag: (tag) => Promise.resolve(tag),
+    removeTag: () => Promise.resolve(),
   };
   return { api, saved, removed };
 };
@@ -81,6 +84,9 @@ describe('createNoteSyncer', () => {
       list: () => Promise.resolve([]),
       save: () => Promise.reject(new Error('offline')),
       remove: () => Promise.resolve(),
+      listTags: () => Promise.resolve([]),
+      saveTag: (tag) => Promise.resolve(tag),
+      removeTag: () => Promise.resolve(),
     };
     const syncer = createNoteSyncer({ api, onStatusChange: (status) => statuses.push(status) });
 

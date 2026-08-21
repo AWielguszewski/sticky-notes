@@ -6,6 +6,8 @@ export type SyncStatus = 'synced' | 'syncing' | 'failed';
 export interface NoteSyncer {
   save(note: Note): void;
   remove(id: NoteId): void;
+  /** Sends a request of its own, so the status still reflects what is in flight. */
+  track<T>(request: Promise<T>): Promise<T>;
   flush(): void;
   dispose(): void;
 }
@@ -32,7 +34,7 @@ export const createNoteSyncer = ({ api, onStatusChange }: NoteSyncerOptions): No
     onStatusChange(inFlight > 0 || pending.size > 0 ? 'syncing' : 'synced');
   };
 
-  const track = (request: Promise<unknown>): void => {
+  const track = <T,>(request: Promise<T>): Promise<T> => {
     inFlight += 1;
     void request
       .then(
@@ -47,6 +49,7 @@ export const createNoteSyncer = ({ api, onStatusChange }: NoteSyncerOptions): No
         inFlight -= 1;
         report();
       });
+    return request;
   };
 
   const cancelTimer = (id: NoteId): void => {
@@ -61,7 +64,7 @@ export const createNoteSyncer = ({ api, onStatusChange }: NoteSyncerOptions): No
     const note = pending.get(id);
     if (note === undefined) return;
     pending.delete(id);
-    track(api.save(note));
+    void track(api.save(note)).catch(() => undefined);
   };
 
   return {
@@ -78,9 +81,11 @@ export const createNoteSyncer = ({ api, onStatusChange }: NoteSyncerOptions): No
     remove(id) {
       cancelTimer(id);
       pending.delete(id);
-      track(api.remove(id));
+      void track(api.remove(id)).catch(() => undefined);
       report();
     },
+
+    track,
 
     flush() {
       for (const id of [...timers.keys()]) writeNow(id);

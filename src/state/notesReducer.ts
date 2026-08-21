@@ -1,35 +1,63 @@
 import type { Rect } from '../model/geometry';
 import type { Note, NoteColor, NoteId } from '../model/note';
-import type { TagId } from '../model/tag';
+import type { Tag, TagId } from '../model/tag';
 
 export type NotesStatus = 'loading' | 'ready' | 'failed';
 
 export type NoteMap = Readonly<Record<NoteId, Note>>;
 
+export type TagMap = Readonly<Record<TagId, Tag>>;
+
 export interface NotesState {
   readonly status: NotesStatus;
   readonly notes: NoteMap;
+  readonly tags: TagMap;
   readonly selectedId: NoteId | null;
+  readonly filterTagId: TagId | null;
 }
 
 export type NotesAction =
-  | { type: 'loaded'; notes: readonly Note[] }
+  | { type: 'loaded'; notes: readonly Note[]; tags: readonly Tag[] }
   | { type: 'loadFailed' }
   | { type: 'created'; id: NoteId; rect: Rect; color: NoteColor; tagIds: readonly TagId[] }
   | { type: 'geometryChanged'; id: NoteId; rect: Rect }
   | { type: 'textChanged'; id: NoteId; text: string }
   | { type: 'colorChanged'; id: NoteId; color: NoteColor }
+  | { type: 'tagsChanged'; id: NoteId; tagIds: readonly TagId[] }
   | { type: 'raised'; id: NoteId }
   | { type: 'selected'; id: NoteId | null }
-  | { type: 'removed'; id: NoteId };
+  | { type: 'removed'; id: NoteId }
+  | { type: 'tagSaved'; tag: Tag }
+  | { type: 'tagRemoved'; id: TagId }
+  | { type: 'filtered'; tagId: TagId | null };
 
 export const initialNotesState: NotesState = {
   status: 'loading',
   notes: {},
+  tags: {},
   selectedId: null,
+  filterTagId: null,
 };
 
 export const selectNoteList = (state: NotesState): Note[] => Object.values(state.notes);
+
+export const selectTagList = (state: NotesState): Tag[] => Object.values(state.tags);
+
+/** What the board shows: everything, or only the notes carrying the filtered tag. */
+export const selectVisibleNotes = (state: NotesState): Note[] => {
+  const tagId = state.filterTagId;
+  const notes = selectNoteList(state);
+  return tagId === null ? notes : notes.filter((note) => note.tagIds.includes(tagId));
+};
+
+/** The first tag a note carries paints it; without one it keeps its own colour. */
+export const effectiveColor = (note: Note, tags: TagMap): NoteColor => {
+  for (const tagId of note.tagIds) {
+    const tag = tags[tagId];
+    if (tag !== undefined) return tag.color;
+  }
+  return note.color;
+};
 
 const topZ = (notes: NoteMap): number =>
   Object.values(notes).reduce((highest, note) => Math.max(highest, note.z), 0);
@@ -45,7 +73,9 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
     case 'loaded': {
       const notes: Record<NoteId, Note> = {};
       for (const note of action.notes) notes[note.id] = note;
-      return { ...state, status: 'ready', notes };
+      const tags: Record<TagId, Tag> = {};
+      for (const tag of action.tags) tags[tag.id] = tag;
+      return { ...state, status: 'ready', notes, tags };
     }
 
     case 'loadFailed':
@@ -72,6 +102,9 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
     case 'colorChanged':
       return patchNote(state, action.id, { color: action.color });
 
+    case 'tagsChanged':
+      return patchNote(state, action.id, { tagIds: action.tagIds });
+
     case 'raised': {
       const note = state.notes[action.id];
       if (note === undefined) return state;
@@ -93,6 +126,32 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
         selectedId: state.selectedId === action.id ? null : state.selectedId,
       };
     }
+
+    case 'tagSaved':
+      return { ...state, tags: { ...state.tags, [action.tag.id]: action.tag } };
+
+    case 'tagRemoved': {
+      const { [action.id]: removed, ...tags } = state.tags;
+      if (removed === undefined) return state;
+
+      // A tag that is gone must not linger on the notes that carried it.
+      const notes: Record<NoteId, Note> = {};
+      for (const note of Object.values(state.notes)) {
+        notes[note.id] = note.tagIds.includes(action.id)
+          ? { ...note, tagIds: note.tagIds.filter((tagId) => tagId !== action.id) }
+          : note;
+      }
+
+      return {
+        ...state,
+        tags,
+        notes,
+        filterTagId: state.filterTagId === action.id ? null : state.filterTagId,
+      };
+    }
+
+    case 'filtered':
+      return state.filterTagId === action.tagId ? state : { ...state, filterTagId: action.tagId };
 
     default: {
       const unhandled: never = action;

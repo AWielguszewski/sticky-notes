@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { Note, NoteId } from '../model/note';
-import { initialNotesState, notesReducer, selectNoteList, type NotesState } from './notesReducer';
+import type { Tag, TagId } from '../model/tag';
+import {
+  effectiveColor,
+  initialNotesState,
+  notesReducer,
+  selectNoteList,
+  selectTagList,
+  selectVisibleNotes,
+  type NotesState,
+} from './notesReducer';
 
 const noteId = (value: string): NoteId => value as NoteId;
+
+const tagId = (value: string): TagId => value as TagId;
 
 const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   id: noteId(id),
@@ -14,14 +25,21 @@ const makeNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   ...overrides,
 });
 
-const stateWith = (...notes: Note[]): NotesState =>
-  notesReducer(initialNotesState, { type: 'loaded', notes });
+const makeTag = (id: string, name: string, color: Tag['color'] = 'sky'): Tag => ({
+  id: tagId(id),
+  name,
+  color,
+});
+
+const stateWith = (notes: Note[], tags: Tag[] = []): NotesState =>
+  notesReducer(initialNotesState, { type: 'loaded', notes, tags });
 
 describe('loading', () => {
-  it('keys the notes by id and becomes ready', () => {
-    const state = stateWith(makeNote('a'), makeNote('b'));
+  it('keys notes and tags by id and becomes ready', () => {
+    const state = stateWith([makeNote('a'), makeNote('b')], [makeTag('t1', 'stkbot')]);
     expect(state.status).toBe('ready');
     expect(selectNoteList(state)).toHaveLength(2);
+    expect(selectTagList(state)).toHaveLength(1);
   });
 
   it('remembers that loading failed', () => {
@@ -31,32 +49,43 @@ describe('loading', () => {
 
 describe('created', () => {
   it('puts the new note on top and selects it', () => {
-    const state = notesReducer(stateWith(makeNote('a', { z: 7 })), {
+    const state = notesReducer(stateWith([makeNote('a', { z: 7 })]), {
       type: 'created',
       id: noteId('b'),
       rect: { x: 10, y: 10, width: 140, height: 140 },
       color: 'sky',
-      tagIds: [],
+      tagIds: [tagId('t1')],
     });
     expect(state.notes[noteId('b')]?.z).toBe(8);
+    expect(state.notes[noteId('b')]?.tagIds).toEqual([tagId('t1')]);
     expect(state.selectedId).toBe(noteId('b'));
   });
 });
 
 describe('patching a note', () => {
-  const state = stateWith(makeNote('a'));
+  const state = stateWith([makeNote('a')]);
 
-  it('applies text, colour and geometry', () => {
-    expect(notesReducer(state, { type: 'textChanged', id: noteId('a'), text: 'hi' }).notes[
-      noteId('a')
-    ]?.text).toBe('hi');
-    expect(notesReducer(state, { type: 'colorChanged', id: noteId('a'), color: 'rose' }).notes[
-      noteId('a')
-    ]?.color).toBe('rose');
+  it('applies text, colour, geometry and tags', () => {
+    expect(
+      notesReducer(state, { type: 'textChanged', id: noteId('a'), text: 'hi' }).notes[noteId('a')]
+        ?.text,
+    ).toBe('hi');
+    expect(
+      notesReducer(state, { type: 'colorChanged', id: noteId('a'), color: 'rose' }).notes[
+        noteId('a')
+      ]?.color,
+    ).toBe('rose');
     const moved = { x: 40, y: 60, width: 300, height: 300 };
-    expect(notesReducer(state, { type: 'geometryChanged', id: noteId('a'), rect: moved }).notes[
-      noteId('a')
-    ]?.rect).toEqual(moved);
+    expect(
+      notesReducer(state, { type: 'geometryChanged', id: noteId('a'), rect: moved }).notes[
+        noteId('a')
+      ]?.rect,
+    ).toEqual(moved);
+    expect(
+      notesReducer(state, { type: 'tagsChanged', id: noteId('a'), tagIds: [tagId('t1')] }).notes[
+        noteId('a')
+      ]?.tagIds,
+    ).toEqual([tagId('t1')]);
   });
 
   it('ignores a note that is not there', () => {
@@ -67,7 +96,7 @@ describe('patching a note', () => {
 });
 
 describe('raised', () => {
-  const state = stateWith(makeNote('a', { z: 1 }), makeNote('b', { z: 2 }));
+  const state = stateWith([makeNote('a', { z: 1 }), makeNote('b', { z: 2 })]);
 
   it('lifts a covered note above the rest', () => {
     const raised = notesReducer(state, { type: 'raised', id: noteId('a') });
@@ -84,12 +113,64 @@ describe('raised', () => {
 
 describe('removed', () => {
   it('drops the note and clears the selection', () => {
-    const selected = notesReducer(stateWith(makeNote('a')), {
+    const selected = notesReducer(stateWith([makeNote('a')]), {
       type: 'selected',
       id: noteId('a'),
     });
     const state = notesReducer(selected, { type: 'removed', id: noteId('a') });
     expect(selectNoteList(state)).toHaveLength(0);
     expect(state.selectedId).toBeNull();
+  });
+});
+
+describe('tags', () => {
+  const tagged = stateWith(
+    [makeNote('a', { tagIds: [tagId('t1')] }), makeNote('b')],
+    [makeTag('t1', 'stkbot')],
+  );
+
+  it('adds and updates a tag', () => {
+    const state = notesReducer(tagged, { type: 'tagSaved', tag: makeTag('t1', 'stkbot', 'rose') });
+    expect(state.tags[tagId('t1')]?.color).toBe('rose');
+  });
+
+  it('takes a removed tag off the notes that carried it', () => {
+    const state = notesReducer(tagged, { type: 'tagRemoved', id: tagId('t1') });
+    expect(selectTagList(state)).toHaveLength(0);
+    expect(state.notes[noteId('a')]?.tagIds).toEqual([]);
+  });
+
+  it('clears a filter that pointed at the removed tag', () => {
+    const filtered = notesReducer(tagged, { type: 'filtered', tagId: tagId('t1') });
+    expect(selectVisibleNotes(filtered)).toHaveLength(1);
+    const state = notesReducer(filtered, { type: 'tagRemoved', id: tagId('t1') });
+    expect(state.filterTagId).toBeNull();
+    expect(selectVisibleNotes(state)).toHaveLength(2);
+  });
+});
+
+describe('effectiveColor', () => {
+  it('takes the colour of the first tag', () => {
+    const state = stateWith(
+      [makeNote('a', { color: 'amber', tagIds: [tagId('t1'), tagId('t2')] })],
+      [makeTag('t1', 'stkbot', 'violet'), makeTag('t2', 'other', 'lime')],
+    );
+    const note = state.notes[noteId('a')];
+    expect(note && effectiveColor(note, state.tags)).toBe('violet');
+  });
+
+  it('falls back to the colour of the note', () => {
+    const state = stateWith([makeNote('a', { color: 'amber' })]);
+    const note = state.notes[noteId('a')];
+    expect(note && effectiveColor(note, state.tags)).toBe('amber');
+  });
+
+  it('skips a tag that is no longer there', () => {
+    const state = stateWith(
+      [makeNote('a', { color: 'amber', tagIds: [tagId('ghost'), tagId('t2')] })],
+      [makeTag('t2', 'other', 'lime')],
+    );
+    const note = state.notes[noteId('a')];
+    expect(note && effectiveColor(note, state.tags)).toBe('lime');
   });
 });
