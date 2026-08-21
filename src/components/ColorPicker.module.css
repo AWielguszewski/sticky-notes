@@ -1,0 +1,26 @@
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.swatch {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 50%;
+  background: var(--note-bg);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.swatch:hover {
+  transform: scale(1.18);
+}
+
+.swatch[data-active],
+.swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
