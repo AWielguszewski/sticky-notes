@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { handleApiRequest, sendJson } from './api.ts';
 import { openDatabase } from './db.ts';
 import { createEventHub } from './events.ts';
+import { createImageStore } from './imageStore.ts';
 import { serveStatic } from './static.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -13,6 +14,7 @@ const STATIC_DIR = resolve(process.env.STATIC_DIR ?? 'dist');
 
 mkdirSync(DATA_DIR, { recursive: true });
 const db = openDatabase(join(DATA_DIR, 'stickynotes.db'));
+const images = createImageStore(join(DATA_DIR, 'images'));
 const hub = createEventHub();
 
 const server = createServer((req, res) => {
@@ -20,7 +22,7 @@ const server = createServer((req, res) => {
 
   void (async () => {
     try {
-      if (await handleApiRequest(db, hub, req, res, pathname)) return;
+      if (await handleApiRequest(db, images, hub, req, res, pathname)) return;
       await serveStatic(STATIC_DIR, res, pathname);
     } catch (error) {
       console.error(error);

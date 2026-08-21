@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { Note, NotesDatabase, Rect, Tag } from './db.ts';
+import { randomUUID } from 'node:crypto';
+import type { NoteInput, NotesDatabase, Rect, Tag } from './db.ts';
 import type { EventHub } from './events.ts';
+import { IMAGE_TYPES, MAX_IMAGE_BYTES, type ImageStore } from './imageStore.ts';
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -9,6 +11,10 @@ const MAX_TAG_NAME_LENGTH = 32;
 const NOTE_PATH = /^\/api\/notes\/([A-Za-z0-9_-]+)$/;
 
 const TAG_PATH = /^\/api\/tags\/([A-Za-z0-9_-]+)$/;
+
+const NOTE_IMAGES_PATH = /^\/api\/notes\/([A-Za-z0-9_-]+)\/images$/;
+
+const IMAGE_PATH = /^\/api\/images\/([A-Za-z0-9_-]+)$/;
 
 export const sendJson = (res: ServerResponse, status: number, body: unknown): void => {
   const payload = JSON.stringify(body);
@@ -24,16 +30,19 @@ const sendEmpty = (res: ServerResponse, status: number): void => {
   res.writeHead(status).end();
 };
 
-const readJson = async (req: IncomingMessage): Promise<unknown> => {
+const readBody = async (req: IncomingMessage, limit: number): Promise<Buffer> => {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw new Error('request body is too large');
+    if (size > limit) throw new Error('request body is too large');
     chunks.push(chunk as Buffer);
   }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return Buffer.concat(chunks);
 };
+
+const readJson = async (req: IncomingMessage): Promise<unknown> =>
+  JSON.parse((await readBody(req, MAX_BODY_BYTES)).toString('utf8'));
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -59,7 +68,7 @@ const decodeTagIds = (value: unknown): string[] | null => {
 };
 
 /** The id always comes from the path, never from the body. */
-export const decodeNote = (id: string, value: unknown): Note | null => {
+export const decodeNote = (id: string, value: unknown): NoteInput | null => {
   if (!isRecord(value)) return null;
   const rect = decodeRect(value.rect);
   const tagIds = decodeTagIds(value.tagIds);
@@ -86,6 +95,7 @@ export const decodeTag = (id: string, value: unknown): Tag | null => {
 
 const handleNotes = async (
   db: NotesDatabase,
+  images: ImageStore,
   changed: () => void,
   req: IncomingMessage,
   res: ServerResponse,
@@ -104,7 +114,10 @@ const handleNotes = async (
   }
 
   if (req.method === 'DELETE') {
+    // The rows go with the note; the bytes have to be swept up by hand.
+    const orphaned = db.imageIdsOf(id);
     db.removeNote(id);
+    await Promise.all(orphaned.map((imageId) => images.remove(imageId)));
     changed();
     sendEmpty(res, 204);
     return true;
@@ -145,8 +158,63 @@ const handleTags = async (
   return false;
 };
 
+const handleImages = async (
+  db: NotesDatabase,
+  images: ImageStore,
+  changed: () => void,
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+): Promise<boolean> => {
+  const noteId = NOTE_IMAGES_PATH.exec(pathname)?.[1];
+  if (noteId !== undefined && req.method === 'POST') {
+    const mime = (req.headers['content-type'] ?? '').split(';')[0]?.trim() ?? '';
+    if (!IMAGE_TYPES.has(mime)) {
+      sendJson(res, 415, { error: `${mime || 'that'} is not an image this board takes` });
+      return true;
+    }
+    const bytes = await readBody(req, MAX_IMAGE_BYTES);
+    if (bytes.length === 0) {
+      sendJson(res, 422, { error: 'the image is empty' });
+      return true;
+    }
+
+    const image = { id: randomUUID(), mime };
+    if (!db.addImage(noteId, image)) {
+      sendJson(res, 404, { error: 'no such note' });
+      return true;
+    }
+    await images.write(image.id, bytes);
+    changed();
+    sendJson(res, 201, image);
+    return true;
+  }
+
+  const imageId = IMAGE_PATH.exec(pathname)?.[1];
+  if (imageId === undefined) return false;
+
+  if (req.method === 'GET') {
+    const image = db.getImage(imageId);
+    if (image === null || !(await images.send(res, image.id, image.mime))) {
+      sendJson(res, 404, { error: 'no such image' });
+    }
+    return true;
+  }
+
+  if (req.method === 'DELETE') {
+    db.removeImage(imageId);
+    await images.remove(imageId);
+    changed();
+    sendEmpty(res, 204);
+    return true;
+  }
+
+  return false;
+};
+
 export const handleApiRequest = async (
   db: NotesDatabase,
+  images: ImageStore,
   hub: EventHub,
   req: IncomingMessage,
   res: ServerResponse,
@@ -171,8 +239,12 @@ export const handleApiRequest = async (
   const changed = (): void => hub.broadcast(typeof client === 'string' ? client : null);
 
   try {
+    if (await handleImages(db, images, changed, req, res, pathname)) return true;
+
     const noteId = NOTE_PATH.exec(pathname)?.[1];
-    if (noteId !== undefined && (await handleNotes(db, changed, req, res, noteId))) return true;
+    if (noteId !== undefined && (await handleNotes(db, images, changed, req, res, noteId))) {
+      return true;
+    }
 
     const tagId = TAG_PATH.exec(pathname)?.[1];
     if (tagId !== undefined && (await handleTags(db, changed, req, res, tagId))) return true;

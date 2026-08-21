@@ -14,7 +14,16 @@ export interface Note {
   color: string;
   z: number;
   tagIds: string[];
+  images: NoteImage[];
 }
+
+export interface NoteImage {
+  id: string;
+  mime: string;
+}
+
+/** What a client may write: images come and go through their own endpoints. */
+export type NoteInput = Omit<Note, 'images'>;
 
 export interface Tag {
   id: string;
@@ -24,12 +33,16 @@ export interface Tag {
 
 export interface NotesDatabase {
   listNotes(): Note[];
-  saveNote(note: Note): void;
+  saveNote(note: NoteInput): void;
   removeNote(id: string): void;
   listTags(): Tag[];
   /** False when another tag already goes by that name. */
   saveTag(tag: Tag): boolean;
   removeTag(id: string): void;
+  addImage(noteId: string, image: NoteImage): boolean;
+  getImage(id: string): NoteImage | null;
+  imageIdsOf(noteId: string): string[];
+  removeImage(id: string): void;
   close(): void;
 }
 
@@ -59,6 +72,15 @@ const SCHEMA = `
     position INTEGER NOT NULL,
     PRIMARY KEY (note_id, tag_id)
   );
+
+  CREATE TABLE IF NOT EXISTS images (
+    id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    mime TEXT NOT NULL,
+    position INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS images_by_note ON images (note_id, position);
 `;
 
 const toTag = (row: Record<string, unknown>): Tag => ({
@@ -104,6 +126,18 @@ export const openDatabase = (file: string): NotesDatabase => {
   `);
   const deleteTag = db.prepare('DELETE FROM tags WHERE id = ?');
 
+  const selectImages = db.prepare('SELECT * FROM images ORDER BY note_id, position');
+  const selectImage = db.prepare('SELECT id, mime FROM images WHERE id = ?');
+  const selectImagesOf = db.prepare('SELECT id FROM images WHERE note_id = ?');
+  const nextImagePosition = db.prepare(
+    'SELECT COALESCE(MAX(position) + 1, 0) AS next FROM images WHERE note_id = ?',
+  );
+  // Selecting from notes keeps an image from outliving the note it was meant for.
+  const insertImage = db.prepare(
+    'INSERT INTO images (id, note_id, mime, position) SELECT ?, id, ?, ? FROM notes WHERE id = ?',
+  );
+  const deleteImage = db.prepare('DELETE FROM images WHERE id = ?');
+
   const transaction = (run: () => void): void => {
     db.exec('BEGIN');
     try {
@@ -125,6 +159,14 @@ export const openDatabase = (file: string): NotesDatabase => {
         tagIds.set(noteId, ids);
       }
 
+      const images = new Map<string, NoteImage[]>();
+      for (const row of selectImages.all()) {
+        const noteId = String(row.note_id);
+        const carried = images.get(noteId) ?? [];
+        carried.push({ id: String(row.id), mime: String(row.mime) });
+        images.set(noteId, carried);
+      }
+
       return selectNotes.all().map((row) => ({
         id: String(row.id),
         rect: {
@@ -137,6 +179,7 @@ export const openDatabase = (file: string): NotesDatabase => {
         color: String(row.color),
         z: Number(row.z),
         tagIds: tagIds.get(String(row.id)) ?? [],
+        images: images.get(String(row.id)) ?? [],
       }));
     },
 
@@ -173,6 +216,23 @@ export const openDatabase = (file: string): NotesDatabase => {
 
     removeTag: (id) => {
       deleteTag.run(id);
+    },
+
+    addImage: (noteId, image) => {
+      const row = nextImagePosition.get(noteId);
+      const position = Number(row?.next ?? 0);
+      return insertImage.run(image.id, image.mime, position, noteId).changes > 0;
+    },
+
+    getImage: (id) => {
+      const row = selectImage.get(id);
+      return row === undefined ? null : { id: String(row.id), mime: String(row.mime) };
+    },
+
+    imageIdsOf: (noteId) => selectImagesOf.all(noteId).map((row) => String(row.id)),
+
+    removeImage: (id) => {
+      deleteImage.run(id);
     },
 
     close: () => db.close(),
