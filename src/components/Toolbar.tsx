@@ -2,6 +2,7 @@ import type { NoteColor } from '../model/note';
 import type { SyncStatus } from '../state/noteSyncer';
 import { useSyncStatus } from '../state/useNotes';
 import { ColorPicker } from './ColorPicker';
+import { TagBar } from './TagBar';
 import styles from './Toolbar.module.css';
 
 const SYNC_LABEL: Record<SyncStatus, string> = {
@@ -21,10 +22,8 @@ export function Toolbar({ color, onColorChange }: ToolbarProps) {
   return (
     <header className={styles.toolbar}>
       <h1 className={styles.title}>Sticky Notes</h1>
-      <p className={styles.hint}>
-        Drag to create a note · double-click for a default one · scroll or hold space to pan ·
-        Ctrl+scroll to zoom · drop a note on the bin to delete it
-      </p>
+
+      <TagBar />
 
       <div className={styles.tools}>
         <ColorPicker value={color} label="New note color" onChange={onColorChange} />

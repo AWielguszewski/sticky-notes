@@ -373,7 +373,11 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       {state.status === 'loading' && <p className={styles.placeholder}>Loading notes…</p>}
       {state.status === 'failed' && <p className={styles.placeholder}>Notes could not be loaded.</p>}
       {state.status === 'ready' && notes.length === 0 && (
-        <p className={styles.placeholder}>Drag anywhere to create a note</p>
+        <p className={styles.placeholder}>
+          {state.filterTagId === null
+            ? 'Drag anywhere to create a note · scroll to pan · Ctrl+scroll to zoom'
+            : 'No notes carry this tag yet · drag anywhere to make one'}
+        </p>
       )}
     </div>
   );
