@@ -27,6 +27,9 @@ const GRID_STEP_PX = 26;
 /** Below this the dot grid turns into noise, so it doubles instead of shrinking further. */
 const MIN_GRID_PX = 16;
 
+/** How long after the last camera change the board is left alone to redraw itself sharply. */
+const CAMERA_SETTLE_MS = 200;
+
 const WHEEL_LINE_PX = 16;
 
 const ZOOM_SENSITIVITY = 320;
@@ -127,9 +130,19 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
     const world = worldRef.current;
     if (element === null || world === null) return;
 
+    let settling: ReturnType<typeof setTimeout> | undefined;
+
     const apply = (): void => {
       const { x, y, scale } = viewportStore.get();
       world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      // Promoted to its own layer only while the camera is moving. A layer that stays
+      // promoted keeps the raster it was given at the old zoom, and the notes go soft.
+      world.style.willChange = 'transform';
+      if (settling !== undefined) clearTimeout(settling);
+      settling = setTimeout(() => {
+        world.style.willChange = '';
+      }, CAMERA_SETTLE_MS);
+
       let grid = GRID_STEP_PX * scale;
       while (grid < MIN_GRID_PX) grid *= 2;
       element.style.setProperty('--vp-x', `${x}`);
@@ -139,7 +152,11 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
     };
 
     apply();
-    return viewportStore.subscribe(apply);
+    const unsubscribe = viewportStore.subscribe(apply);
+    return () => {
+      if (settling !== undefined) clearTimeout(settling);
+      unsubscribe();
+    };
   }, []);
 
   // Wheel has to be non-passive to keep the browser from scrolling or zooming the page.
