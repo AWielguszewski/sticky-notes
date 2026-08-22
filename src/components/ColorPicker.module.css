@@ -1,5 +1,4 @@
 .picker {
-  position: relative;
   display: flex;
   align-items: center;
 }
@@ -25,20 +24,26 @@
   outline-offset: 2px;
 }
 
+/* Placed from script in viewport coordinates: the top layer ignores where it came from. */
 .panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  z-index: 400;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  position: fixed;
+  inset: auto;
+  margin: 0;
   padding: 8px;
-  transform: translateX(-50%);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   background: var(--panel-bg);
   box-shadow: var(--shadow-note);
+}
+
+.panel:popover-open {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.panel::backdrop {
+  background: none;
 }
 
 .swatch {
