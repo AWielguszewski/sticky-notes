@@ -2,10 +2,7 @@
   "mcpServers": {
     "stickynotes": {
       "command": "node",
-      "args": ["--disable-warning=ExperimentalWarning", "mcp/index.ts"],
-      "env": {
-        "STICKYNOTES_URL": "http://127.0.0.1:8787"
-      }
+      "args": ["--disable-warning=ExperimentalWarning", "mcp/index.ts"]
     }
   }
 }

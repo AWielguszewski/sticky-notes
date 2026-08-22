@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   createBoard,
   nextFreeRect,
@@ -7,7 +8,17 @@ import {
   type Tag,
 } from './board.ts';
 
-const BASE_URL = process.env.STICKYNOTES_URL ?? 'http://127.0.0.1:8787';
+/** For boards that do not run on this machine: local/board.env is never committed. */
+const configuredUrl = (): string | null => {
+  try {
+    const text = readFileSync(new URL('../local/board.env', import.meta.url), 'utf8');
+    return /^\s*BOARD_URL\s*=\s*(\S+)/m.exec(text)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const BASE_URL = process.env.STICKYNOTES_URL ?? configuredUrl() ?? 'http://127.0.0.1:8787';
 
 const PROTOCOL_VERSION = '2025-06-18';
 
