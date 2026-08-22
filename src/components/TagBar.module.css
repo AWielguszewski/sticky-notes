@@ -138,3 +138,14 @@
   color: var(--danger);
   font-size: 11px;
 }
+
+@media (max-width: 720px) {
+  .bar {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .panel {
+    width: min(268px, calc(100vw - 32px));
+  }
+}

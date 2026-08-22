@@ -31,7 +31,7 @@ export function Toolbar({ color, onColorChange }: ToolbarProps) {
         <ThemeToggle />
         <p className={styles.sync} data-status={syncStatus} aria-live="polite">
           <span className={styles.dot} aria-hidden="true" />
-          {SYNC_LABEL[syncStatus]}
+          <span className={styles.syncLabel}>{SYNC_LABEL[syncStatus]}</span>
         </p>
       </div>
     </header>

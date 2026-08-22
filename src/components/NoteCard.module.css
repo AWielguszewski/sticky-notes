@@ -81,6 +81,8 @@
 
 .note[data-editing] .text {
   pointer-events: auto;
+  /* Let a finger place the caret and scroll the text once the note is being written in. */
+  touch-action: auto;
 }
 
 .text::placeholder {

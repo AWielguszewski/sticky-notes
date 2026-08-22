@@ -45,3 +45,10 @@
   background: var(--board-bg);
   color: var(--ink);
 }
+
+@media (max-width: 720px) {
+  .zoom {
+    bottom: 14px;
+    left: 14px;
+  }
+}

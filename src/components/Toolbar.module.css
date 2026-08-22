@@ -1,10 +1,11 @@
 .toolbar {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
-  height: 56px;
-  padding: 0 20px;
+  gap: 12px 18px;
+  min-height: 56px;
+  padding: 9px 16px;
   background: var(--panel-bg);
   border-bottom: 1px solid var(--panel-border);
   box-shadow: var(--shadow-panel);
@@ -49,4 +50,23 @@
 
 .sync[data-status='failed'] .dot {
   background: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .title {
+    font-size: 14px;
+  }
+
+  .tools {
+    gap: 14px;
+  }
+
+  /* Only the dot is left: the word behind it would push the toolbar into a third row. */
+  .sync {
+    width: auto;
+  }
+
+  .syncLabel {
+    display: none;
+  }
 }

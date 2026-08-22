@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCanvasTouch } from '../hooks/useCanvasTouch';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import {
   boundingRect,
@@ -112,6 +113,13 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       ),
     );
   }, []);
+
+  useCanvasTouch(viewportRef, {
+    isBackground: (target) => target === viewportRef.current,
+    onPan: (by) => viewportStore.set(panBy(viewportStore.get(), by)),
+    onPinch: (pivot, factor, by) =>
+      viewportStore.set(panBy(zoomBy(viewportStore.get(), pivot, factor), by)),
+  });
 
   // The camera is written straight to the DOM: panning must not re-render a single note.
   useEffect(() => {
@@ -251,6 +259,8 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
         element.toggleAttribute('data-panning', true);
         return { kind: 'pan', origin: viewportStore.get() };
       }
+      // Fingers are read by useCanvasTouch instead: they drag the board and pinch it.
+      if (event.pointerType === 'touch') return null;
       if (event.button !== 0 || event.target !== event.currentTarget) return null;
 
       actions.select(null);

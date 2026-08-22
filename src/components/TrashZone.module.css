@@ -29,3 +29,17 @@
 .label {
   font-size: 12px;
 }
+
+@media (max-width: 720px) {
+  .trash {
+    right: 14px;
+    bottom: 14px;
+    width: 92px;
+    height: 92px;
+    gap: 4px;
+  }
+
+  .label {
+    font-size: 10.5px;
+  }
+}
