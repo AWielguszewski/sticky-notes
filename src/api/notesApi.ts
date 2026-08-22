@@ -1,3 +1,4 @@
+import { randomId } from '../model/id';
 import type { ImageId, Note, NoteId, NoteImage } from '../model/note';
 import type { Tag, TagId } from '../model/tag';
 import { decodeImage, decodeNotes, decodeTags } from './notesCodec';
@@ -14,7 +15,7 @@ export interface NotesApi {
 }
 
 /** Identifies this board, so the server can tell it apart from the ones it has to notify. */
-export const CLIENT_ID = crypto.randomUUID();
+export const CLIENT_ID = randomId();
 
 // Requests are queued so that two writes of the same thing cannot land out of order.
 let queue: Promise<unknown> = Promise.resolve();

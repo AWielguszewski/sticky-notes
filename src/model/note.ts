@@ -1,3 +1,4 @@
+import { randomId } from './id';
 import type { Rect, Size } from './geometry';
 import type { TagId } from './tag';
 
@@ -45,4 +46,4 @@ export const MIN_NOTE_SIZE: Size = { width: 140, height: 120 };
 
 export const DEFAULT_NOTE_SIZE: Size = { width: 220, height: 200 };
 
-export const createNoteId = (): NoteId => crypto.randomUUID() as NoteId;
+export const createNoteId = (): NoteId => randomId() as NoteId;

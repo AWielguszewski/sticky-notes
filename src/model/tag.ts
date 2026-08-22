@@ -1,3 +1,4 @@
+import { randomId } from './id';
 import type { NoteColor } from './note';
 
 export type TagId = string & { readonly __brand: 'TagId' };
@@ -10,7 +11,7 @@ export interface Tag {
 
 export const MAX_TAG_NAME_LENGTH = 32;
 
-export const createTagId = (): TagId => crypto.randomUUID() as TagId;
+export const createTagId = (): TagId => randomId() as TagId;
 
 export const normaliseTagName = (name: string): string =>
   name.trim().replace(/\s+/g, ' ').slice(0, MAX_TAG_NAME_LENGTH);
