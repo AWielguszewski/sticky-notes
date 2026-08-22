@@ -2,8 +2,9 @@
 
 ![The board](screenshot.png)
 
-An endless board where sticky notes are created, moved, resized, tagged and thrown away with the
-mouse. A tag carries a colour, and it paints every note that carries it.
+An endless board where sticky notes are created, moved, resized, tagged, given pictures and thrown
+away with the mouse — or with a finger, on a phone. A tag carries a colour, and it paints every
+note that carries it. Light and dark, whichever you pick.
 
 ## Stack
 
@@ -27,5 +28,5 @@ npm run dev               # client on 5173, proxying /api
 npm test
 ```
 
-A Claude Code session reaches the same board through the MCP server in `mcp/`, declared in
-`.mcp.json`.
+The board is also reachable over an MCP connection: the server in `mcp/` exposes it as tools for
+reading notes and writing them back.
