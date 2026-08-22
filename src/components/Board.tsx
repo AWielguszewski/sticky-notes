@@ -4,23 +4,24 @@ import { usePointerDrag } from '../hooks/usePointerDrag';
 import {
   boundingRect,
   containsPoint,
+  overlaps,
   rectFromCorners,
   type Point,
   type Rect,
 } from '../model/geometry';
-import { DEFAULT_NOTE_SIZE, MIN_NOTE_SIZE, type NoteColor, type NoteId } from '../model/note';
+import { DEFAULT_NOTE_SIZE, type NoteColor, type NoteId } from '../model/note';
 import { fitToRect, panBy, toWorld, zoomBy, zoomTo, type Viewport } from '../model/viewport';
 import { selectVisibleNotes } from '../state/notesReducer';
 import { useNoteActions, useNotesState } from '../state/useNotes';
 import { viewportStore } from '../state/viewportStore';
-import { DraftNote, type DraftNoteHandle } from './DraftNote';
-import { NoteCard, type NoteDropTarget } from './NoteCard';
+import { Marquee, type MarqueeHandle } from './Marquee';
+import { NoteCard, type NoteDropTarget, type NoteGroup } from './NoteCard';
 import { TrashZone, type TrashZoneHandle } from './TrashZone';
 import { ZoomControl } from './ZoomControl';
 import styles from './Board.module.css';
 
-/** Shorter drags are treated as a click on the board rather than as drawing a note. */
-const DRAW_THRESHOLD_PX = 12;
+/** Shorter drags count as a click on the board, which lets the selection go. */
+const LASSO_THRESHOLD_PX = 6;
 
 const GRID_STEP_PX = 26;
 
@@ -38,10 +39,11 @@ const ZOOM_STEP = 1.25;
 
 const FIT_PADDING_PX = 80;
 
-interface DrawGesture {
-  kind: 'draw';
+interface LassoGesture {
+  kind: 'lasso';
   origin: Point;
   anchor: Point;
+  keep: readonly NoteId[];
 }
 
 interface PanGesture {
@@ -49,15 +51,15 @@ interface PanGesture {
   origin: Viewport;
 }
 
-type BoardGesture = DrawGesture | PanGesture;
+type BoardGesture = LassoGesture | PanGesture;
 
-const isDrawing = (delta: Point): boolean =>
-  Math.abs(delta.x) >= DRAW_THRESHOLD_PX || Math.abs(delta.y) >= DRAW_THRESHOLD_PX;
+const isLassoing = (delta: Point): boolean =>
+  Math.abs(delta.x) >= LASSO_THRESHOLD_PX || Math.abs(delta.y) >= LASSO_THRESHOLD_PX;
 
 const isTyping = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.tagName === 'TEXTAREA' || target.isContentEditable);
 
-const drawnRect = ({ origin, anchor }: DrawGesture, point: Point): Rect =>
+const lassoedRect = ({ origin, anchor }: LassoGesture, point: Point): Rect =>
   rectFromCorners(
     anchor,
     toWorld(viewportStore.get(), { x: point.x - origin.x, y: point.y - origin.y }),
@@ -70,7 +72,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  const draftRef = useRef<DraftNoteHandle>(null);
+  const marqueeRef = useRef<MarqueeHandle>(null);
   const trashRef = useRef<TrashZoneHandle>(null);
   const createdIdRef = useRef<NoteId | null>(null);
   const panReadyRef = useRef(false);
@@ -85,9 +87,45 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
   );
 
   const notesRef = useRef(notes);
+  const selectionRef = useRef(state.selectedIds);
   useEffect(() => {
     notesRef.current = notes;
+    selectionRef.current = state.selectedIds;
   });
+
+  const selected = useMemo(() => new Set(state.selectedIds), [state.selectedIds]);
+
+  // Notes register themselves here so a whole selection can be dragged as one.
+  const group = useMemo<NoteGroup>(() => {
+    const elements = new Map<NoteId, HTMLElement>();
+    return {
+      register: (id, element) => {
+        if (element === null) elements.delete(id);
+        else elements.set(id, element);
+      },
+      members: (id) => {
+        const selection = selectionRef.current;
+        return selection.length > 1 && selection.includes(id) ? [...selection] : [id];
+      },
+      rectOf: (id) => notesRef.current.find((note) => note.id === id)?.rect ?? null,
+      elementOf: (id) => elements.get(id) ?? null,
+    };
+  }, []);
+
+  const createNote = useCallback(
+    (centre: Point) => {
+      createdIdRef.current = actions.create(
+        {
+          x: centre.x - DEFAULT_NOTE_SIZE.width / 2,
+          y: centre.y - DEFAULT_NOTE_SIZE.height / 2,
+          ...DEFAULT_NOTE_SIZE,
+        },
+        draftColor,
+        draftTagIds,
+      );
+    },
+    [actions, draftColor, draftTagIds],
+  );
 
   const zoomAtCentre = useCallback((factor: number) => {
     const element = viewportRef.current;
@@ -280,12 +318,13 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       if (event.pointerType === 'touch') return null;
       if (event.button !== 0 || event.target !== event.currentTarget) return null;
 
-      actions.select(null);
       const bounds = element.getBoundingClientRect();
       const origin = { x: bounds.left, y: bounds.top };
       return {
-        kind: 'draw',
+        kind: 'lasso',
         origin,
+        // Holding shift keeps what was already picked and adds to it.
+        keep: event.shiftKey ? selectionRef.current : [],
         anchor: toWorld(viewportStore.get(), {
           x: event.clientX - origin.x,
           y: event.clientY - origin.y,
@@ -297,29 +336,28 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
         viewportStore.set(panBy(context.origin, delta));
         return;
       }
-      if (isDrawing(delta)) {
-        draftRef.current?.show(drawnRect(context, point), draftColor);
+      if (isLassoing(delta)) {
+        marqueeRef.current?.show(lassoedRect(context, point));
         return;
       }
-      draftRef.current?.hide();
+      marqueeRef.current?.hide();
     },
     onEnd: (context, { point, delta }) => {
       if (context.kind === 'pan') {
         viewportRef.current?.toggleAttribute('data-panning', false);
         return;
       }
-      draftRef.current?.hide();
-      if (!isDrawing(delta)) return;
-      const drawn = drawnRect(context, point);
-      createdIdRef.current = actions.create(
-        {
-          ...drawn,
-          width: Math.max(drawn.width, MIN_NOTE_SIZE.width),
-          height: Math.max(drawn.height, MIN_NOTE_SIZE.height),
-        },
-        draftColor,
-        draftTagIds,
-      );
+      marqueeRef.current?.hide();
+      if (!isLassoing(delta)) {
+        actions.select(context.keep);
+        return;
+      }
+
+      const lassoed = lassoedRect(context, point);
+      const caught = notesRef.current
+        .filter((note) => overlaps(note.rect, lassoed))
+        .map((note) => note.id);
+      actions.select([...context.keep.filter((id) => !caught.includes(id)), ...caught]);
     },
     onCancel: (context) => {
       if (context.kind === 'pan') {
@@ -327,7 +365,7 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
         viewportStore.set(context.origin);
         return;
       }
-      draftRef.current?.hide();
+      marqueeRef.current?.hide();
     },
   });
 
@@ -335,41 +373,45 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
     const element = viewportRef.current;
     if (element === null || event.target !== event.currentTarget) return;
     const bounds = element.getBoundingClientRect();
-    const center = toWorld(viewportStore.get(), {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    });
-    createdIdRef.current = actions.create(
-      {
-        x: center.x - DEFAULT_NOTE_SIZE.width / 2,
-        y: center.y - DEFAULT_NOTE_SIZE.height / 2,
-        ...DEFAULT_NOTE_SIZE,
-      },
-      draftColor,
-      draftTagIds,
+    createNote(
+      toWorld(viewportStore.get(), {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      }),
     );
   };
 
-  const selectedId = state.selectedId;
+  const createInMiddle = (): void => {
+    const element = viewportRef.current;
+    if (element === null) return;
+    createNote(
+      toWorld(viewportStore.get(), {
+        x: element.clientWidth / 2,
+        y: element.clientHeight / 2,
+      }),
+    );
+  };
+
+  const selectedIds = state.selectedIds;
   useEffect(() => {
-    if (selectedId === null) return;
+    if (selectedIds.length === 0) return;
 
     const handleKeyDown = (event: KeyboardEvent): void => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (event.key === 'Escape') {
         target?.blur();
-        actions.select(null);
+        actions.select([]);
         return;
       }
       if (!isTyping(target) && (event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault();
-        actions.remove(selectedId);
+        actions.remove(selectedIds);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [actions, selectedId]);
+  }, [actions, selectedIds]);
 
   return (
     <div
@@ -384,15 +426,32 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
             key={note.id}
             note={note}
             tags={state.tags}
-            selected={note.id === selectedId}
+            selected={selected.has(note.id)}
             startEditing={note.id === createdIdRef.current}
             getViewport={getViewport}
             dropTarget={dropTarget}
+            group={group}
           />
         ))}
 
-        <DraftNote ref={draftRef} />
+        <Marquee ref={marqueeRef} />
       </div>
+
+      <button type="button" className={styles.newNote} title="New note" onClick={createInMiddle}>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        New note
+      </button>
 
       <TrashZone ref={trashRef} />
       <ZoomControl
@@ -407,8 +466,8 @@ export function Board({ draftColor }: { draftColor: NoteColor }) {
       {state.status === 'ready' && notes.length === 0 && (
         <p className={styles.placeholder}>
           {state.filterTagId === null
-            ? 'Drag anywhere to create a note · scroll to pan · Ctrl+scroll to zoom'
-            : 'No notes carry this tag yet · drag anywhere to make one'}
+            ? 'Double-click anywhere for a note · drag to lasso · scroll to pan · Ctrl+scroll to zoom'
+            : 'No notes carry this tag yet · double-click to make one'}
         </p>
       )}
     </div>

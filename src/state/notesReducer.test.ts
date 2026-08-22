@@ -59,7 +59,7 @@ describe('created', () => {
     });
     expect(state.notes[noteId('b')]?.z).toBe(8);
     expect(state.notes[noteId('b')]?.tagIds).toEqual([tagId('t1')]);
-    expect(state.selectedId).toBe(noteId('b'));
+    expect(state.selectedIds).toEqual([noteId('b')]);
   });
 });
 
@@ -102,13 +102,13 @@ describe('raised', () => {
   it('lifts a covered note above the rest', () => {
     const raised = notesReducer(state, { type: 'raised', id: noteId('a') });
     expect(raised.notes[noteId('a')]?.z).toBe(3);
-    expect(raised.selectedId).toBe(noteId('a'));
+    expect(raised.selectedIds).toEqual([noteId('a')]);
   });
 
   it('only selects a note that is already on top', () => {
     const raised = notesReducer(state, { type: 'raised', id: noteId('b') });
     expect(raised.notes[noteId('b')]?.z).toBe(2);
-    expect(raised.selectedId).toBe(noteId('b'));
+    expect(raised.selectedIds).toEqual([noteId('b')]);
   });
 });
 
@@ -116,11 +116,11 @@ describe('removed', () => {
   it('drops the note and clears the selection', () => {
     const selected = notesReducer(stateWith([makeNote('a')]), {
       type: 'selected',
-      id: noteId('a'),
+      ids: [noteId('a')],
     });
-    const state = notesReducer(selected, { type: 'removed', id: noteId('a') });
+    const state = notesReducer(selected, { type: 'removed', ids: [noteId('a')] });
     expect(selectNoteList(state)).toHaveLength(0);
-    expect(state.selectedId).toBeNull();
+    expect(state.selectedIds).toEqual([]);
   });
 });
 
@@ -179,7 +179,7 @@ describe('effectiveColor', () => {
 describe('restored', () => {
   it('puts back the notes and tags it is given', () => {
     const before = stateWith([makeNote('a')], [makeTag('t1', 'stkbot')]);
-    const after = notesReducer(before, { type: 'removed', id: noteId('a') });
+    const after = notesReducer(before, { type: 'removed', ids: [noteId('a')] });
     const undone = notesReducer(after, {
       type: 'restored',
       notes: before.notes,
@@ -191,11 +191,11 @@ describe('restored', () => {
   it('lets go of a selection and a filter that no longer exist', () => {
     const full = stateWith([makeNote('a', { tagIds: [tagId('t1')] })], [makeTag('t1', 'stkbot')]);
     const selected = notesReducer(
-      notesReducer(full, { type: 'selected', id: noteId('a') }),
+      notesReducer(full, { type: 'selected', ids: [noteId('a')] }),
       { type: 'filtered', tagId: tagId('t1') },
     );
     const state = notesReducer(selected, { type: 'restored', notes: {}, tags: {} });
-    expect(state.selectedId).toBeNull();
+    expect(state.selectedIds).toEqual([]);
     expect(state.filterTagId).toBeNull();
   });
 });
@@ -212,5 +212,45 @@ describe('refreshed', () => {
     expect(state.notes[noteId('a')]?.text).toBe('still typing');
     expect(state.notes[noteId('b')]).toBeUndefined();
     expect(state.notes[noteId('c')]).toBeDefined();
+  });
+});
+
+describe('a selection of several notes', () => {
+  const many = notesReducer(stateWith([makeNote('a'), makeNote('b'), makeNote('c')]), {
+    type: 'selected',
+    ids: [noteId('a'), noteId('b')],
+  });
+
+  it('moves every note it holds, and only those', () => {
+    const state = notesReducer(many, {
+      type: 'moved',
+      ids: [noteId('a'), noteId('b')],
+      by: { x: 30, y: -10 },
+    });
+    expect(state.notes[noteId('a')]?.rect).toMatchObject({ x: 30, y: -10 });
+    expect(state.notes[noteId('b')]?.rect).toMatchObject({ x: 30, y: -10 });
+    expect(state.notes[noteId('c')]?.rect).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it('throws the whole selection away at once', () => {
+    const state = notesReducer(many, { type: 'removed', ids: [noteId('a'), noteId('b')] });
+    expect(selectNoteList(state)).toHaveLength(1);
+    expect(state.selectedIds).toEqual([]);
+  });
+
+  it('keeps the selection when one of its notes is raised', () => {
+    const state = notesReducer(many, { type: 'raised', id: noteId('a') });
+    expect(state.selectedIds).toEqual([noteId('a'), noteId('b')]);
+  });
+
+  it('drops the selection for a note outside it', () => {
+    const state = notesReducer(many, { type: 'raised', id: noteId('c') });
+    expect(state.selectedIds).toEqual([noteId('c')]);
+  });
+
+  it('ignores a move that names nothing it has', () => {
+    expect(
+      notesReducer(many, { type: 'moved', ids: [noteId('ghost')], by: { x: 5, y: 5 } }).notes,
+    ).toEqual(many.notes);
   });
 });

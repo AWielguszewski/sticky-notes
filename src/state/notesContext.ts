@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { Rect } from '../model/geometry';
+import type { Point, Rect } from '../model/geometry';
 import type { ImageId, NoteColor, NoteId } from '../model/note';
 import type { TagId } from '../model/tag';
 import type { SyncStatus } from './noteSyncer';
@@ -15,8 +15,10 @@ export interface NoteActions {
   detachImage(id: NoteId, imageId: ImageId): void;
   makeTagPrimary(id: NoteId, tagId: TagId): void;
   raise(id: NoteId): void;
-  select(id: NoteId | null): void;
-  remove(id: NoteId): void;
+  select(ids: readonly NoteId[]): void;
+  /** Moves a whole selection at once, so undo takes it back in one step. */
+  move(ids: readonly NoteId[], by: Point): void;
+  remove(ids: readonly NoteId[]): void;
   /** Null when the name is blank or another tag already goes by it. */
   createTag(name: string, color: NoteColor): TagId | null;
   renameTag(id: TagId, name: string): boolean;

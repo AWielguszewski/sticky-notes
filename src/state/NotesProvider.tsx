@@ -148,14 +148,23 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       raise(id) {
         dispatch({ type: 'raised', id: touch(id) });
       },
-      select(id) {
-        dispatch({ type: 'selected', id });
+      select(ids) {
+        dispatch({ type: 'selected', ids });
       },
-      remove(id) {
+      move(ids, by) {
+        if (ids.length === 0) return;
         record('');
-        dirtyIds.current.delete(id);
-        syncer.remove(id);
-        dispatch({ type: 'removed', id });
+        for (const id of ids) touch(id);
+        dispatch({ type: 'moved', ids, by });
+      },
+      remove(ids) {
+        if (ids.length === 0) return;
+        record('');
+        for (const id of ids) {
+          dirtyIds.current.delete(id);
+          syncer.remove(id);
+        }
+        dispatch({ type: 'removed', ids });
       },
       createTag(name, color) {
         const trimmed = normaliseTagName(name);

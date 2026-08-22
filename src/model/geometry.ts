@@ -57,3 +57,6 @@ export const boundingRect = (rects: readonly Rect[]): Rect | null => {
   }
   return bounds;
 };
+
+export const overlaps = (a: Rect, b: Rect): boolean =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import { translate, type Point, type Rect } from '../model/geometry';
-import { MIN_NOTE_SIZE, type Note } from '../model/note';
+import { MIN_NOTE_SIZE, type Note, type NoteId } from '../model/note';
 import { deltaToWorld, type Viewport } from '../model/viewport';
 import { effectiveColor, type TagMap } from '../state/notesReducer';
 import { useNoteActions } from '../state/useNotes';
@@ -17,6 +17,15 @@ export interface NoteDropTarget {
   cancel(): void;
 }
 
+/** What the board knows and a single note does not: who else is picked, and where they are. */
+export interface NoteGroup {
+  register(id: NoteId, element: HTMLElement | null): void;
+  /** The note itself, or the whole selection when it belongs to one. */
+  members(id: NoteId): NoteId[];
+  rectOf(id: NoteId): Rect | null;
+  elementOf(id: NoteId): HTMLElement | null;
+}
+
 interface NoteCardProps {
   note: Note;
   tags: TagMap;
@@ -24,11 +33,23 @@ interface NoteCardProps {
   startEditing: boolean;
   getViewport: () => Viewport;
   dropTarget: NoteDropTarget;
+  group: NoteGroup;
 }
 
 /** Geometry captured when a gesture starts; the pointer delta is applied to it on every frame. */
 interface GestureContext {
   rect: Rect;
+  viewport: Viewport;
+}
+
+interface Travelling {
+  id: NoteId;
+  rect: Rect;
+  element: HTMLElement;
+}
+
+interface MoveContext {
+  members: Travelling[];
   viewport: Viewport;
 }
 
@@ -44,6 +65,17 @@ const movedRect = ({ rect, viewport }: GestureContext, delta: Point): Rect => ({
   ...rect,
   ...translate(rect, deltaToWorld(viewport, delta)),
 });
+
+const writeRect = (element: HTMLElement, rect: Rect): void => {
+  element.style.left = `${rect.x}px`;
+  element.style.top = `${rect.y}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+};
+
+const flagAll = (members: Travelling[], flag: NoteFlag, on: boolean): void => {
+  for (const member of members) member.element.toggleAttribute(`data-${flag}`, on);
+};
 
 const resizedRect = ({ rect, viewport }: GestureContext, delta: Point): Rect => {
   const by = deltaToWorld(viewport, delta);
@@ -69,6 +101,7 @@ function NoteCardView({
   startEditing,
   getViewport,
   dropTarget,
+  group,
 }: NoteCardProps) {
   const actions = useNoteActions();
   const elementRef = useRef<HTMLElement>(null);
@@ -78,13 +111,13 @@ function NoteCardView({
   const [editing, setEditing] = useState(startEditing);
 
   const applyRect = useCallback((rect: Rect) => {
-    const element = elementRef.current;
-    if (element === null) return;
-    element.style.left = `${rect.x}px`;
-    element.style.top = `${rect.y}px`;
-    element.style.width = `${rect.width}px`;
-    element.style.height = `${rect.height}px`;
+    if (elementRef.current !== null) writeRect(elementRef.current, rect);
   }, []);
+
+  useEffect(() => {
+    group.register(note.id, elementRef.current);
+    return () => group.register(note.id, null);
+  }, [group, note.id]);
 
   const setFlag = useCallback((flag: NoteFlag, on: boolean) => {
     elementRef.current?.toggleAttribute(`data-${flag}`, on);
@@ -94,39 +127,51 @@ function NoteCardView({
     if (editing) textRef.current?.focus();
   }, [editing]);
 
-  const handleMoveStart = usePointerDrag<GestureContext>({
+  const handleMoveStart = usePointerDrag<MoveContext>({
     onStart: (event) => {
       if (event.button !== 0) return null;
       actions.raise(note.id);
       dropTarget.begin();
-      setFlag('dragging', true);
-      return { rect: note.rect, viewport: getViewport() };
+
+      const members: Travelling[] = [];
+      for (const id of group.members(note.id)) {
+        const rect = group.rectOf(id);
+        const element = group.elementOf(id);
+        if (rect !== null && element !== null) members.push({ id, rect, element });
+      }
+      flagAll(members, 'dragging', true);
+      return { members, viewport: getViewport() };
     },
-    onMove: (context, { delta, point }) => {
-      applyRect(movedRect(context, delta));
-      setFlag('doomed', dropTarget.update(point));
+    onMove: ({ members, viewport }, { delta, point }) => {
+      for (const member of members) {
+        writeRect(member.element, movedRect({ rect: member.rect, viewport }, delta));
+      }
+      flagAll(members, 'doomed', dropTarget.update(point));
     },
-    onEnd: (context, { delta, point }) => {
-      setFlag('dragging', false);
-      setFlag('doomed', false);
+    onEnd: ({ members, viewport }, { delta, point }) => {
+      flagAll(members, 'dragging', false);
+      flagAll(members, 'doomed', false);
+
       if (!isDrag(delta)) {
         dropTarget.cancel();
         setEditing(true);
         return;
       }
+      const ids = members.map((member) => member.id);
       if (dropTarget.drop(point)) {
-        actions.remove(note.id);
+        actions.remove(ids);
         return;
       }
-      const rect = movedRect(context, delta);
-      applyRect(rect);
-      actions.setGeometry(note.id, rect);
+      for (const member of members) {
+        writeRect(member.element, movedRect({ rect: member.rect, viewport }, delta));
+      }
+      actions.move(ids, deltaToWorld(viewport, delta));
     },
-    onCancel: (context) => {
-      setFlag('dragging', false);
-      setFlag('doomed', false);
+    onCancel: ({ members }) => {
+      flagAll(members, 'dragging', false);
+      flagAll(members, 'doomed', false);
       dropTarget.cancel();
-      applyRect(context.rect);
+      for (const member of members) writeRect(member.element, member.rect);
     },
   });
 

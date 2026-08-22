@@ -1,4 +1,4 @@
-import type { Rect } from '../model/geometry';
+import { translate, type Point, type Rect } from '../model/geometry';
 import type { ImageId, Note, NoteColor, NoteId, NoteImage } from '../model/note';
 import type { Tag, TagId } from '../model/tag';
 
@@ -12,7 +12,7 @@ export interface NotesState {
   readonly status: NotesStatus;
   readonly notes: NoteMap;
   readonly tags: TagMap;
-  readonly selectedId: NoteId | null;
+  readonly selectedIds: readonly NoteId[];
   readonly filterTagId: TagId | null;
 }
 
@@ -28,8 +28,9 @@ export type NotesAction =
   | { type: 'imageAdded'; id: NoteId; image: NoteImage }
   | { type: 'imageRemoved'; id: NoteId; imageId: ImageId }
   | { type: 'raised'; id: NoteId }
-  | { type: 'selected'; id: NoteId | null }
-  | { type: 'removed'; id: NoteId }
+  | { type: 'selected'; ids: readonly NoteId[] }
+  | { type: 'moved'; ids: readonly NoteId[]; by: Point }
+  | { type: 'removed'; ids: readonly NoteId[] }
   | { type: 'tagSaved'; tag: Tag }
   | { type: 'tagRemoved'; id: TagId }
   | { type: 'filtered'; tagId: TagId | null }
@@ -39,7 +40,7 @@ export const initialNotesState: NotesState = {
   status: 'loading',
   notes: {},
   tags: {},
-  selectedId: null,
+  selectedIds: [],
   filterTagId: null,
 };
 
@@ -62,6 +63,9 @@ export const effectiveColor = (note: Note, tags: TagMap): NoteColor => {
   }
   return note.color;
 };
+
+const sameIds = (a: readonly NoteId[], b: readonly NoteId[]): boolean =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
 
 const topZ = (notes: NoteMap): number =>
   Object.values(notes).reduce((highest, note) => Math.max(highest, note.z), 0);
@@ -108,7 +112,7 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
         tagIds: action.tagIds,
         images: [],
       };
-      return { ...state, notes: { ...state.notes, [note.id]: note }, selectedId: note.id };
+      return { ...state, notes: { ...state.notes, [note.id]: note }, selectedIds: [note.id] };
     }
 
     case 'geometryChanged':
@@ -143,19 +147,40 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
       const highest = topZ(state.notes);
       const raised =
         note.z === highest ? state : patchNote(state, action.id, { z: highest + 1 });
-      return raised.selectedId === action.id ? raised : { ...raised, selectedId: action.id };
+      // Raising one of several selected notes keeps the group, so it can still be dragged.
+      return raised.selectedIds.includes(action.id)
+        ? raised
+        : { ...raised, selectedIds: [action.id] };
     }
 
     case 'selected':
-      return state.selectedId === action.id ? state : { ...state, selectedId: action.id };
+      return sameIds(state.selectedIds, action.ids) ? state : { ...state, selectedIds: action.ids };
+
+    case 'moved': {
+      const notes: Record<NoteId, Note> = { ...state.notes };
+      for (const id of action.ids) {
+        const note = notes[id];
+        if (note !== undefined) {
+          notes[id] = { ...note, rect: { ...note.rect, ...translate(note.rect, action.by) } };
+        }
+      }
+      return { ...state, notes };
+    }
 
     case 'removed': {
-      const { [action.id]: removed, ...rest } = state.notes;
-      if (removed === undefined) return state;
+      const notes: Record<NoteId, Note> = { ...state.notes };
+      let dropped = false;
+      for (const id of action.ids) {
+        if (notes[id] !== undefined) {
+          delete notes[id];
+          dropped = true;
+        }
+      }
+      if (!dropped) return state;
       return {
         ...state,
-        notes: rest,
-        selectedId: state.selectedId === action.id ? null : state.selectedId,
+        notes,
+        selectedIds: state.selectedIds.filter((id) => notes[id] !== undefined),
       };
     }
 
@@ -186,15 +211,12 @@ export const notesReducer = (state: NotesState, action: NotesAction): NotesState
       return state.filterTagId === action.tagId ? state : { ...state, filterTagId: action.tagId };
 
     case 'restored': {
-      const selectedId =
-        state.selectedId !== null && action.notes[state.selectedId] === undefined
-          ? null
-          : state.selectedId;
+      const selectedIds = state.selectedIds.filter((id) => action.notes[id] !== undefined);
       const filterTagId =
         state.filterTagId !== null && action.tags[state.filterTagId] === undefined
           ? null
           : state.filterTagId;
-      return { ...state, notes: action.notes, tags: action.tags, selectedId, filterTagId };
+      return { ...state, notes: action.notes, tags: action.tags, selectedIds, filterTagId };
     }
 
     default: {

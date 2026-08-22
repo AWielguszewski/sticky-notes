@@ -1,0 +1,13 @@
+.marquee {
+  position: absolute;
+  z-index: 300;
+  /* Counter-scaled so the outline stays hairline-thin at any zoom. */
+  border: calc(1px / var(--vp-scale)) solid var(--accent);
+  border-radius: calc(3px / var(--vp-scale));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.marquee[hidden] {
+  display: none;
+}
