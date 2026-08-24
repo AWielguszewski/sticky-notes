@@ -8,8 +8,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 136px;
-  height: 136px;
+  width: var(--bin-size);
+  height: var(--bin-size);
   border: 2px dashed var(--outline);
   border-radius: 16px;
   background: var(--veil);
@@ -34,8 +34,6 @@
   .trash {
     right: 14px;
     bottom: 14px;
-    width: 92px;
-    height: 92px;
     gap: 4px;
   }
 
