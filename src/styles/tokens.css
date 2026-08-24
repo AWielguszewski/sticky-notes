@@ -53,6 +53,12 @@
 }
 
 /* Every element carrying a note color exposes the same three variables to its subtree. */
+[data-color='white'] {
+  --note-bg: #ffffff;
+  --note-edge: #e8eaef;
+  --note-ink: #2b3346;
+}
+
 [data-color='amber'] {
   --note-bg: #ffe08a;
   --note-edge: #f7cf6a;

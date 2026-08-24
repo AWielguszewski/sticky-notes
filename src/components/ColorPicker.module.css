@@ -38,7 +38,8 @@
 
 .panel:popover-open {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Five to a row leaves the last one three across, not one adrift on its own. */
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
 }
 

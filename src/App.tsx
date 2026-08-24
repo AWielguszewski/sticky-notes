@@ -5,7 +5,7 @@ import type { NoteColor } from './model/note';
 import styles from './App.module.css';
 
 export function App() {
-  const [draftColor, setDraftColor] = useState<NoteColor>('amber');
+  const [draftColor, setDraftColor] = useState<NoteColor>('white');
 
   return (
     <div className={styles.app}>

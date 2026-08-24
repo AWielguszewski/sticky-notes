@@ -14,6 +14,7 @@ export interface NoteImage {
 export const imageUrl = (id: ImageId): string => `/api/images/${id}`;
 
 export const NOTE_COLORS = [
+  'white',
   'amber',
   'peach',
   'rose',

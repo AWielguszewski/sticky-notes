@@ -23,7 +23,7 @@ const BASE_URL = process.env.STICKYNOTES_URL ?? configuredUrl() ?? 'http://127.0
 const PROTOCOL_VERSION = '2025-06-18';
 
 const COLORS =
-  'amber, peach, rose, blush, violet, indigo, sky, teal, mint, lime, sand or slate';
+  'white, amber, peach, rose, blush, violet, indigo, sky, teal, mint, lime, sand or slate';
 
 const board = createBoard(BASE_URL);
 
@@ -147,7 +147,7 @@ const runTool = async (name: string, args: Record<string, unknown>): Promise<unk
           ...(typeof args.y === 'number' ? { y: args.y } : {}),
         },
         text,
-        color: asString(args.color) ?? 'amber',
+        color: asString(args.color) ?? 'white',
         z: topZ(notes) + 1,
         tagIds,
       };
