@@ -10,6 +10,8 @@ html,
 body,
 #root {
   height: 100%;
+  /* The address bar slides away as you scroll and takes a percentage height with it. */
+  height: 100dvh;
 }
 
 body {

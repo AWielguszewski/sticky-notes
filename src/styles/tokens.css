@@ -22,11 +22,17 @@
 
   /* The bin and the New note button stacked above it share a width: one column, one number. */
   --bin-size: 136px;
+
+  /* How far anything parked at an edge of the board sits from it. The board is drawn under
+     the notch and the home bar — index.html asks for viewport-fit=cover — so every such
+     control adds the safe area on top of this, and env() is simply 0 where there is none. */
+  --edge-gap: 28px;
 }
 
 @media (max-width: 720px) {
   :root {
     --bin-size: 92px;
+    --edge-gap: 14px;
   }
 }
 

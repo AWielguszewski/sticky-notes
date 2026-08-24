@@ -1,7 +1,7 @@
 .zoom {
   position: absolute;
-  bottom: 28px;
-  left: 28px;
+  bottom: calc(var(--edge-gap) + env(safe-area-inset-bottom));
+  left: calc(var(--edge-gap) + env(safe-area-inset-left));
   z-index: 100;
   display: flex;
   align-items: center;
@@ -44,11 +44,4 @@
 .level:hover {
   background: var(--board-bg);
   color: var(--ink);
-}
-
-@media (max-width: 720px) {
-  .zoom {
-    bottom: 14px;
-    left: 14px;
-  }
 }
