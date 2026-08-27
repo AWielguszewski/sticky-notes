@@ -121,6 +121,13 @@
   border-color: var(--danger);
 }
 
+/* Same as the text of a note: under 16px and a phone zooms the page in to focus it. */
+@media (pointer: coarse) {
+  .name {
+    font-size: 16px;
+  }
+}
+
 .add,
 .delete {
   flex: none;

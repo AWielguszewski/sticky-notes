@@ -89,6 +89,15 @@
   color: rgba(0, 0, 0, 0.3);
 }
 
+/* A phone zooms the whole page in on a field under 16px that it has just focused, and
+   takes the toolbar off the top of the screen with it. Opening a note is not a request
+   to zoom, so on a touch screen the text is never small enough to ask for one. */
+@media (pointer: coarse) {
+  .text {
+    font-size: 16px;
+  }
+}
+
 .resizeHandle {
   position: absolute;
   right: 0;

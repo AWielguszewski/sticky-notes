@@ -12,6 +12,10 @@ body,
   height: 100%;
   /* The address bar slides away as you scroll and takes a percentage height with it. */
   height: 100dvh;
+  /* Nothing here scrolls — the board pans itself — so a page that could scroll would only
+     ever be the browser sliding the toolbar off the top of the screen. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {

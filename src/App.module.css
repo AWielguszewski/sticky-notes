@@ -1,5 +1,15 @@
 .app {
+  /* Pinned to the screen instead of laid out in the page. Whatever the browser does with
+     its own viewport, useScreenFit points these at the part of it that is visible, and the
+     toolbar and everything parked at an edge stay exactly where they were put. */
+  position: fixed;
+  top: var(--screen-y, 0px);
+  left: var(--screen-x, 0px);
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: var(--screen-width, 100%);
+  height: var(--screen-height, 100dvh);
+  /* Fingers pan and scroll what is under them and nothing else: the board carries a zoom
+     of its own, and zooming the page instead would slide this whole shell off the screen. */
+  touch-action: pan-x pan-y;
 }
