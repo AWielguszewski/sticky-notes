@@ -12,6 +12,8 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  /* Room for the ring around the chip that is on: overflow-x clips at the padding box. */
+  padding: 4px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -30,7 +32,7 @@
   text-overflow: ellipsis;
   cursor: pointer;
   opacity: 0.75;
-  transition: opacity 120ms ease, box-shadow 120ms ease;
+  transition: opacity 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
 .chip:hover {
@@ -39,7 +41,16 @@
 
 .chip[data-active] {
   opacity: 1;
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: var(--accent);
+  font-weight: 650;
+  /* A gap in the panel colour and then the accent: a ring drawn straight onto the chip's
+     own pastel was too easy to take for one more chip. */
+  box-shadow: 0 0 0 1.5px var(--panel-bg), 0 0 0 3.5px var(--accent);
+}
+
+/* While a tag is filtering, the rest step back, so the one that is on cannot be missed. */
+.chips[data-filtering] .chip:not([data-active]) {
+  opacity: 0.32;
 }
 
 .manager {

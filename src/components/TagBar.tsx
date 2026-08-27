@@ -111,7 +111,7 @@ export function TagBar() {
 
   return (
     <div className={styles.bar}>
-      <div className={styles.chips}>
+      <div className={styles.chips} data-filtering={state.filterTagId !== null || undefined}>
         {tags.map((tag) => (
           <button
             key={tag.id}
