@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_INLINE_IMAGE_BYTES,
   NOTE_SIZE,
+  describeNote,
   nextFreeRect,
+  pictureFor,
   resolveTagIds,
   topZ,
   type Note,
@@ -21,6 +24,7 @@ const note = (id: string, z: number): Note => ({
   color: 'amber',
   z,
   tagIds: [],
+  images: [],
 });
 
 describe('nextFreeRect', () => {
@@ -65,5 +69,44 @@ describe('topZ', () => {
 
   it('finds the note on top', () => {
     expect(topZ([note('a', 3), note('b', 9), note('c', 1)])).toBe(9);
+  });
+});
+
+describe('describeNote', () => {
+  it('answers with tag names rather than the ids nobody can use', () => {
+    expect(describeNote({ ...note('n1', 1), tagIds: ['t2'] }, tags).tags).toEqual(['marketrunner']);
+  });
+
+  it('carries the pictures a note holds, so it is plain they are there', () => {
+    const carrying = { ...note('n1', 1), images: [{ id: 'i1', mime: 'image/png' }] };
+    expect(describeNote(carrying, tags).images).toEqual([{ id: 'i1', mime: 'image/png' }]);
+  });
+
+  it('says a note has none rather than leaving the question open', () => {
+    expect(describeNote(note('n1', 1), tags).images).toEqual([]);
+  });
+});
+
+describe('pictureFor', () => {
+  const image = { id: 'i1', mime: 'image/png' };
+
+  it('hands over a picture to be looked at', () => {
+    expect(pictureFor(image, new Uint8Array([1, 2, 3]), 'http://board/i1')).toEqual({
+      type: 'image',
+      data: Buffer.from([1, 2, 3]).toString('base64'),
+      mimeType: 'image/png',
+    });
+  });
+
+  it('names one too big to carry instead of dropping it', () => {
+    const huge = new Uint8Array(MAX_INLINE_IMAGE_BYTES + 1);
+    const answer = pictureFor(image, huge, 'http://board/i1');
+    expect(answer.type).toBe('text');
+    expect(answer.type === 'text' && JSON.parse(answer.text)).toEqual({
+      image: 'i1',
+      mime: 'image/png',
+      bytes: huge.byteLength,
+      tooLargeToShow: 'http://board/i1',
+    });
   });
 });

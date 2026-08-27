@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs';
 import {
+  asJson,
   createBoard,
+  describeNote,
   nextFreeRect,
   resolveTagIds,
   topZ,
+  type Content,
   type Note,
   type Tag,
 } from './board.ts';
@@ -25,6 +28,24 @@ const PROTOCOL_VERSION = '2025-06-18';
 const COLORS =
   'white, amber, peach, rose, blush, violet, indigo, sky, teal, mint, lime, sand or slate';
 
+/**
+ * Handed to whoever connects, before they have called anything. It is here rather than only
+ * in the tool descriptions because the mistakes worth heading off are about the board as a
+ * whole: where it lives, and that a note can be carrying more than its text.
+ */
+const INSTRUCTIONS =
+  'A personal board of sticky notes — the to-do and bug list its owner jots ' +
+  'down while using their projects.\n\n' +
+  'The board is a live one reached over the network. It is never files in a repository, ' +
+  'so searching a project for notes, todo comments or markdown will not find it, and ' +
+  'there is nothing to read from disk. These tools are the whole of it.\n\n' +
+  'A tag says which project a note belongs to, and matches the folder name of that ' +
+  'project, so scope work to one project with list_notes({ tag }) and leave notes ' +
+  'carrying another tag alone.\n\n' +
+  'A note can carry pictures. list_notes says which notes have them; read_note({ id }) ' +
+  'answers with the note and every picture on it, to look at directly. There is no url ' +
+  'to fetch and no http call to make of your own.';
+
 const board = createBoard(BASE_URL);
 
 const TOOLS = [
@@ -36,10 +57,23 @@ const TOOLS = [
   {
     name: 'list_notes',
     description:
-      'The notes on the board, newest last. Pass a tag to see only the notes carrying it.',
+      'The notes on the board, newest last. Pass a tag to see only the notes carrying it. ' +
+      'Each note lists the pictures it carries; read_note fetches them.',
     inputSchema: {
       type: 'object',
       properties: { tag: { type: 'string', description: 'Tag name or id' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'read_note',
+    description:
+      'One note, with every picture attached to it. The pictures come back to be looked at, ' +
+      'so this is the whole note: there is nothing further to fetch.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
       additionalProperties: false,
     },
   },
@@ -62,7 +96,8 @@ const TOOLS = [
   },
   {
     name: 'update_note',
-    description: 'Changes the text, colour or tags of a note that is already there.',
+    description:
+      'Changes the text, colour or tags of a note that is already there. Its pictures stay.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -108,19 +143,11 @@ const asStrings = (value: unknown): string[] | undefined =>
     ? (value as string[])
     : undefined;
 
-/** Notes are answered with tag names, which are what a conversation can actually use. */
-const withTagNames = (note: Note, tags: readonly Tag[]) => ({
-  id: note.id,
-  text: note.text,
-  color: note.color,
-  tags: note.tagIds.map((id) => tags.find((tag) => tag.id === id)?.name ?? id),
-  position: { x: note.rect.x, y: note.rect.y },
-});
-
-const runTool = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+/** An answer is a list, because a note answers with its pictures alongside its text. */
+const runTool = async (name: string, args: Record<string, unknown>): Promise<Content[]> => {
   switch (name) {
     case 'list_tags':
-      return board.listTags();
+      return [asJson(await board.listTags())];
 
     case 'list_notes': {
       const [notes, tags] = await Promise.all([board.listNotes(), board.listTags()]);
@@ -130,7 +157,18 @@ const runTool = async (name: string, args: Record<string, unknown>): Promise<unk
         wantedId === undefined || wantedId === null
           ? notes
           : notes.filter((note) => note.tagIds.includes(wantedId));
-      return shown.map((note) => withTagNames(note, tags));
+      return [asJson(shown.map((note) => describeNote(note, tags)))];
+    }
+
+    case 'read_note': {
+      const id = asString(args.id);
+      if (id === undefined) throw new Error('read_note needs an id');
+      const [notes, tags] = await Promise.all([board.listNotes(), board.listTags()]);
+      const note = notes.find((entry) => entry.id === id);
+      if (note === undefined) throw new Error(`no note with id ${id}`);
+      // Every picture on it comes too: a note is not read until they have been seen.
+      const pictures = await Promise.all(note.images.map((image) => board.readImage(image)));
+      return [asJson(describeNote(note, tags)), ...pictures];
     }
 
     case 'create_note': {
@@ -150,9 +188,11 @@ const runTool = async (name: string, args: Record<string, unknown>): Promise<unk
         color: asString(args.color) ?? 'white',
         z: topZ(notes) + 1,
         tagIds,
+        // Pictures are put on a note afterwards, from the board itself.
+        images: [],
       };
       await board.saveNote(note);
-      return withTagNames(note, tags);
+      return [asJson(describeNote(note, tags))];
     }
 
     case 'update_note': {
@@ -169,14 +209,14 @@ const runTool = async (name: string, args: Record<string, unknown>): Promise<unk
         tagIds: wanted === undefined ? note.tagIds : resolveTagIds(tags, wanted),
       };
       await board.saveNote(updated);
-      return withTagNames(updated, tags);
+      return [asJson(describeNote(updated, tags))];
     }
 
     case 'delete_note': {
       const id = asString(args.id);
       if (id === undefined) throw new Error('delete_note needs an id');
       await board.removeNote(id);
-      return { deleted: id };
+      return [asJson({ deleted: id })];
     }
 
     case 'create_tag': {
@@ -186,11 +226,11 @@ const runTool = async (name: string, args: Record<string, unknown>): Promise<unk
       const existing = tags.find(
         (tag) => tag.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
       );
-      if (existing !== undefined) return existing;
+      if (existing !== undefined) return [asJson(existing)];
 
       const tag: Tag = { id: crypto.randomUUID(), name, color: asString(args.color) ?? 'violet' };
       await board.saveTag(tag);
-      return tag;
+      return [asJson(tag)];
     }
 
     default:
@@ -215,6 +255,7 @@ const handle = async (request: Record<string, unknown>): Promise<void> => {
         protocolVersion: asString(params.protocolVersion) ?? PROTOCOL_VERSION,
         capabilities: { tools: {} },
         serverInfo: { name: 'stickynotes', version: '1.0.0' },
+        instructions: INSTRUCTIONS,
       });
       return;
 
@@ -228,8 +269,8 @@ const handle = async (request: Record<string, unknown>): Promise<void> => {
 
     case 'tools/call':
       try {
-        const result = await runTool(asString(params.name) ?? '', asRecord(params.arguments));
-        reply({ content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+        const content = await runTool(asString(params.name) ?? '', asRecord(params.arguments));
+        reply({ content });
       } catch (error) {
         reply({
           content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }],

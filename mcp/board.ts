@@ -5,6 +5,11 @@ export interface Rect {
   height: number;
 }
 
+export interface NoteImage {
+  id: string;
+  mime: string;
+}
+
 export interface Note {
   id: string;
   rect: Rect;
@@ -12,7 +17,13 @@ export interface Note {
   color: string;
   z: number;
   tagIds: string[];
+  images: NoteImage[];
 }
+
+/** What one answer to a tool call is made of: things to read, and things to look at. */
+export type Content =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string };
 
 export interface Tag {
   id: string;
@@ -23,10 +34,46 @@ export interface Tag {
 export interface Board {
   listNotes(): Promise<Note[]>;
   listTags(): Promise<Tag[]>;
+  /** The picture itself, fetched and ready to be looked at. */
+  readImage(image: NoteImage): Promise<Content>;
   saveNote(note: Note): Promise<void>;
   removeNote(id: string): Promise<void>;
   saveTag(tag: Tag): Promise<void>;
 }
+
+export const asJson = (value: unknown): Content => ({
+  type: 'text',
+  text: JSON.stringify(value, null, 2),
+});
+
+/**
+ * How much of a picture a conversation can be handed. The board itself takes images up to
+ * twelve megabytes, which is far past what fits in an answer.
+ */
+export const MAX_INLINE_IMAGE_BYTES = 3_500_000;
+
+/**
+ * A picture is handed over to be looked at rather than linked to, since a link to a board
+ * on somebody's network is no use to whoever is reading. One too big to carry is named and
+ * measured instead of quietly dropped, so it is clear something is there.
+ */
+export const pictureFor = (image: NoteImage, data: Uint8Array, url: string): Content =>
+  data.byteLength > MAX_INLINE_IMAGE_BYTES
+    ? asJson({ image: image.id, mime: image.mime, bytes: data.byteLength, tooLargeToShow: url })
+    : { type: 'image', data: Buffer.from(data).toString('base64'), mimeType: image.mime };
+
+/**
+ * A note as a conversation can use it: its tags by name rather than by id, and whatever
+ * pictures it carries listed, so it is plain that they are there and can be asked for.
+ */
+export const describeNote = (note: Note, tags: readonly Tag[]) => ({
+  id: note.id,
+  text: note.text,
+  color: note.color,
+  tags: note.tagIds.map((id) => tags.find((tag) => tag.id === id)?.name ?? id),
+  position: { x: note.rect.x, y: note.rect.y },
+  images: note.images.map((image) => ({ id: image.id, mime: image.mime })),
+});
 
 export const NOTE_SIZE = { width: 240, height: 210 };
 
@@ -99,6 +146,12 @@ export const createBoard = (baseUrl: string): Board => {
   return {
     listNotes: () => call('/notes') as Promise<Note[]>,
     listTags: () => call('/tags') as Promise<Tag[]>,
+    readImage: async (image) => {
+      const url = `${baseUrl}/api/images/${image.id}`;
+      const response = await fetch(url, { headers: { 'x-client-id': 'mcp' } });
+      if (!response.ok) throw new Error(`image ${image.id} answered ${response.status}`);
+      return pictureFor(image, new Uint8Array(await response.arrayBuffer()), url);
+    },
     saveNote: async (note) => {
       await put(`/notes/${note.id}`, note);
     },

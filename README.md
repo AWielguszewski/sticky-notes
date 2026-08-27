@@ -29,4 +29,5 @@ npm test
 ```
 
 The board is also reachable over an MCP connection: the server in `mcp/` exposes it as tools for
-reading notes and writing them back.
+reading notes and writing them back. A note is read whole — `read_note` answers with the pictures
+attached to it as pictures, not as links to go and fetch.
