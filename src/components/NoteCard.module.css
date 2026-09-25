@@ -12,22 +12,15 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
-  transition: box-shadow 140ms ease, transform 140ms ease, rotate 140ms ease, opacity 140ms ease;
+  transition: transform 140ms ease, opacity 140ms ease;
 }
 
 .note[data-selected] {
   box-shadow: var(--shadow-note), 0 0 0 1.5px var(--accent);
 }
 
-.note[data-editing],
-.note[data-dragging] {
-  rotate: 0deg;
-}
-
 .note[data-dragging] {
   z-index: 200;
-  box-shadow: var(--shadow-note-lifted);
-  transform: scale(1.02);
   cursor: grabbing;
 }
 

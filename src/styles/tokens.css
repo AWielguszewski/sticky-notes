@@ -13,7 +13,6 @@
   --warning: #d08a1e;
 
   --shadow-note: 0 1px 1px rgba(60, 45, 20, 0.12), 0 10px 14px -8px rgba(60, 45, 20, 0.35);
-  --shadow-note-lifted: 0 2px 4px rgba(60, 45, 20, 0.12), 0 22px 30px -12px rgba(60, 45, 20, 0.45);
 }
 
 /* Every element carrying a note color exposes the same three variables to its subtree. */
