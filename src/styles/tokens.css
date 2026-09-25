@@ -1,50 +1,48 @@
 :root {
   --font-ui: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
 
-  --board-bg: #eceef3;
-  --board-dot: #d3d7e0;
-  --panel-bg: #ffffff;
-  --panel-border: #e3e6ee;
+  --board-bg: #f3efe6;
+  --board-line: rgba(90, 70, 40, 0.05);
+  --panel-border: #e2dccf;
 
-  --ink: #1b2233;
-  --ink-muted: #767e90;
-  --accent: #3b6ef6;
-  --danger: #e04b4b;
-  --success: #2fa96a;
-  --warning: #d99424;
+  --ink: #2b2824;
+  --ink-muted: #8a8174;
+  --accent: #2b2824;
+  --danger: #d2463c;
+  --success: #4e9a5b;
+  --warning: #d08a1e;
 
-  --shadow-panel: 0 1px 3px rgba(20, 26, 40, 0.08);
-  --shadow-note: 0 1px 2px rgba(20, 26, 40, 0.1), 0 6px 16px rgba(20, 26, 40, 0.1);
-  --shadow-note-lifted: 0 6px 14px rgba(20, 26, 40, 0.14), 0 22px 40px rgba(20, 26, 40, 0.18);
+  --shadow-note: 0 1px 1px rgba(60, 45, 20, 0.12), 0 10px 14px -8px rgba(60, 45, 20, 0.35);
+  --shadow-note-lifted: 0 2px 4px rgba(60, 45, 20, 0.12), 0 22px 30px -12px rgba(60, 45, 20, 0.45);
 }
 
 /* Every element carrying a note color exposes the same three variables to its subtree. */
 [data-color='amber'] {
-  --note-bg: #ffe08a;
-  --note-edge: #f7cf6a;
-  --note-ink: #4b3708;
+  --note-bg: #fbe38e;
+  --note-edge: #f1d36c;
+  --note-ink: #4a3a10;
 }
 
 [data-color='lime'] {
-  --note-bg: #cdee8e;
-  --note-edge: #b9e26f;
-  --note-ink: #31460f;
+  --note-bg: #d6eca2;
+  --note-edge: #c3df84;
+  --note-ink: #34451a;
 }
 
 [data-color='sky'] {
-  --note-bg: #aaddff;
-  --note-edge: #88cdfb;
-  --note-ink: #0f3a5c;
+  --note-bg: #c3e1f2;
+  --note-edge: #a9d1e8;
+  --note-ink: #1d3f55;
 }
 
 [data-color='rose'] {
-  --note-bg: #ffbacd;
-  --note-edge: #ff9fb9;
-  --note-ink: #5c1a31;
+  --note-bg: #f8c9d1;
+  --note-edge: #efb0bc;
+  --note-ink: #5a2430;
 }
 
 [data-color='violet'] {
-  --note-bg: #d6c3ff;
-  --note-edge: #c1a8fb;
-  --note-ink: #331f6b;
+  --note-bg: #ddd1f2;
+  --note-edge: #cbbbea;
+  --note-ink: #3a2c5e;
 }

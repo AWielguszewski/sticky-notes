@@ -27,8 +27,8 @@ export function TrashZone({ ref }: { ref: Ref<TrashZoneHandle> }) {
   return (
     <div ref={elementRef} className={styles.trash} aria-hidden="true">
       <svg
-        width="34"
-        height="34"
+        width="26"
+        height="26"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -41,7 +41,7 @@ export function TrashZone({ ref }: { ref: Ref<TrashZoneHandle> }) {
         <path d="M6.5 7l.8 12.1a1 1 0 0 0 1 .9h7.4a1 1 0 0 0 1-.9L17.5 7" />
         <path d="M10 11v6M14 11v6" />
       </svg>
-      <span className={styles.label}>Drop to delete</span>
+      <span className={styles.label}>Delete</span>
     </div>
   );
 }

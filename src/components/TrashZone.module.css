@@ -7,12 +7,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 136px;
-  height: 136px;
-  border: 2px dashed #c2c8d6;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.5);
+  gap: 4px;
+  width: 84px;
+  height: 84px;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: #fbf9f4;
   color: var(--ink-muted);
   pointer-events: none;
   transition: color 140ms ease, border-color 140ms ease, background 140ms ease,
@@ -21,11 +21,11 @@
 
 .trash[data-active] {
   border-color: var(--danger);
-  background: rgba(224, 75, 75, 0.1);
-  color: var(--danger);
-  transform: scale(1.06);
+  background: var(--danger);
+  color: #fff;
+  transform: scale(1.12);
 }
 
 .label {
-  font-size: 12px;
+  font-size: 11px;
 }

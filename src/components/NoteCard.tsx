@@ -51,12 +51,20 @@ const resizedRect = ({ rect, board }: GestureContext, delta: Point): Rect => ({
   height: clamp(rect.height + delta.y, MIN_NOTE_SIZE.height, board.height - rect.y),
 });
 
+/** A small tilt derived from the id, so a note keeps the same angle across reloads. */
+const tiltOf = (id: string): string => {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return `${((Math.abs(hash) % 5) - 2) * 0.5}deg`;
+};
+
 const noteStyle = (note: Note): CSSProperties => ({
   left: note.rect.x,
   top: note.rect.y,
   width: note.rect.width,
   height: note.rect.height,
   ['--note-z' as string]: note.z,
+  ['--note-tilt' as string]: tiltOf(note.id),
 });
 
 function NoteCardView({ note, selected, startEditing, getBoardSize, dropTarget }: NoteCardProps) {

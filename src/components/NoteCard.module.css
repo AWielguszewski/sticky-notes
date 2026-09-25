@@ -1,21 +1,27 @@
 .note {
   position: absolute;
   z-index: var(--note-z);
+  rotate: var(--note-tilt);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: 2px;
   background: var(--note-bg);
   color: var(--note-ink);
   box-shadow: var(--shadow-note);
   cursor: grab;
   touch-action: none;
   user-select: none;
-  transition: box-shadow 140ms ease, transform 140ms ease, opacity 140ms ease;
+  transition: box-shadow 140ms ease, transform 140ms ease, rotate 140ms ease, opacity 140ms ease;
 }
 
 .note[data-selected] {
-  box-shadow: var(--shadow-note), 0 0 0 2px var(--accent);
+  box-shadow: var(--shadow-note), 0 0 0 1.5px var(--accent);
+}
+
+.note[data-editing],
+.note[data-dragging] {
+  rotate: 0deg;
 }
 
 .note[data-dragging] {
@@ -39,14 +45,15 @@
   gap: 10px;
   height: 26px;
   padding: 0 8px;
-  background: var(--note-edge);
+  /* The darker band reads as the glue strip of a real sticky note. */
+  background: linear-gradient(var(--note-edge), var(--note-bg));
 }
 
 .grip {
-  width: 26px;
-  height: 4px;
+  width: 22px;
+  height: 3px;
   border-radius: 2px;
-  background: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .tools {
@@ -64,13 +71,14 @@
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 10px 12px 14px;
+  padding: 6px 14px 14px;
   border: none;
   outline: none;
   background: transparent;
   color: inherit;
   font: inherit;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.5;
   resize: none;
   cursor: text;
   user-select: text;
