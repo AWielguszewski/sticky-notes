@@ -28,7 +28,7 @@ interface NoteCardProps {
   dropTarget: NoteDropTarget;
 }
 
-/** Geometry captured when a gesture starts; the pointer delta is applied to it on every frame. */
+/** Geometry captured when a gesture starts; the pointer delta is applied to it on every move. */
 interface GestureContext {
   rect: Rect;
   board: Size;

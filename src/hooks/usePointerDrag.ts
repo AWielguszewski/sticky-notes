@@ -38,20 +38,10 @@ const createDragController = <TContext>(
   handlers: RefObject<PointerDragHandlers<TContext>>,
 ): DragController => {
   let session: DragSession<TContext> | null = null;
-  let frame = 0;
-
-  const flush = (): void => {
-    frame = 0;
-    if (session !== null) handlers.current.onMove?.(session.context, toUpdate(session));
-  };
 
   const stop = (): DragSession<TContext> | null => {
     const finished = session;
     session = null;
-    if (frame !== 0) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-    }
     window.removeEventListener('pointermove', handleMove);
     window.removeEventListener('pointerup', handleUp);
     window.removeEventListener('pointercancel', handleCancel);
@@ -70,8 +60,8 @@ const createDragController = <TContext>(
   const handleMove = (event: PointerEvent): void => {
     if (session === null || event.pointerId !== session.pointerId) return;
     session.point = { x: event.clientX, y: event.clientY };
-    // Pointer events fire faster than the display refreshes; one callback per frame is enough.
-    if (frame === 0) frame = requestAnimationFrame(flush);
+    // Browsers already coalesce pointermove to about one event per frame, so no extra throttling.
+    handlers.current.onMove?.(session.context, toUpdate(session));
   };
 
   const handleUp = (event: PointerEvent): void => {
